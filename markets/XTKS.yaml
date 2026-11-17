@@ -1,0 +1,55 @@
+mic: XTKS
+name: Tokyo Stock Exchange
+country: JP
+currency: JPY
+timezone: Asia/Tokyo
+calendar: XTKS
+sessions:
+  morning:
+    open: "09:00"
+    close: "11:30"
+  afternoon:
+    open: "12:30"
+    close: "15:30"
+  regular:
+    open: "09:00"
+    close: "15:30"
+settlement: T+2
+benchmark: "XTKS:1306"
+lot_size: 100
+tick_size:
+  - { below: 1000.0, tick: 1.0 }
+  - { below: 3000.0, tick: 1.0 }
+  - { below: 5000.0, tick: 5.0 }
+  - { below: 30000.0, tick: 10.0 }
+  - { below: 50000.0, tick: 50.0 }
+  - { below: 300000.0, tick: 100.0 }
+  - { below: .inf, tick: 1000.0 }
+price_limits:
+  type: percent_band
+  bands_source: provider
+short_selling:
+  intraday: false
+  overnight: true
+  borrow_cost_bps_annual: 30.0
+costs:
+  commission:
+    type: flat_or_bps
+    flat: 55.0
+    bps: 10.0
+    take: max
+  taxes:
+    - { name: securities_transaction_tax, side: sell, bps: 0.0 }
+  exchange_fees:
+    bps: 0.2
+  regulatory_fees:
+    bps: 0.0
+  spread_model: from_quotes_or_volatility
+  impact_model:
+    type: square_root
+    coefficient: 0.08
+fx:
+  quote_currency: JPY
+data_defaults:
+  prices: [yahoo]
+  filings: []

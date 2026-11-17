@@ -1,0 +1,52 @@
+# New York Stock Exchange
+mic: XNYS
+name: New York Stock Exchange
+country: US
+currency: USD
+timezone: America/New_York
+calendar: XNYS
+sessions:
+  regular:
+    open: "09:30"
+    close: "16:00"
+  pre_market:
+    open: "04:00"
+    close: "09:30"
+  after_hours:
+    open: "16:00"
+    close: "20:00"
+settlement: T+1
+benchmark: "XNYS:SPY"
+lot_size: 1
+tick_size:
+  - { below: 1.0, tick: 0.0001 }
+  - { below: .inf, tick: 0.01 }
+price_limits:
+  type: percent_band
+  bands_source: provider   # SEC market-wide circuit breakers; per-stock via LULD
+short_selling:
+  intraday: true
+  overnight: true
+  borrow_cost_bps_annual: 50.0
+costs:
+  commission:
+    type: zero               # commission-free at most retail brokers; override per broker
+    bps: 0.0
+  taxes:
+    - { name: sec_fee, side: sell, bps: 0.00278 }
+    - { name: finra_taf, side: sell, bps: 0.00119 }
+  exchange_fees:
+    bps: 0.3
+  regulatory_fees:
+    bps: 0.0
+  spread_model: from_quotes_or_volatility
+  impact_model:
+    type: square_root
+    coefficient: 0.1
+fx:
+  quote_currency: USD
+data_defaults:
+  prices: [yahoo, polygon, tiingo]
+  filings: [sec_edgar]
+  fundamentals: [fmp]
+  news: [gdelt, rss]

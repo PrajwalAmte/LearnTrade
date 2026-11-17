@@ -1,0 +1,25 @@
+# Long-term investor profile — balanced risk level
+
+[profile]
+id = "long_term_balanced"
+display_name = "Long-term investor — Balanced"
+description = "Monthly reviews, fundamentals + momentum, moderate diversification."
+
+[horizons]
+enabled = ["swing_20d", "positional_60d", "positional_120d"]
+primary = "positional_60d"
+
+[portfolio]
+allocator = "hrp"
+max_position = 0.06
+max_sector = 0.25
+long_only = true
+rebalance = "monthly"
+
+[risk]
+max_drawdown_stop = 0.15
+daily_loss_stop = 0.03
+drawdown_alert_pct = 0.15
+
+[execution]
+mode = "paper"

@@ -1,0 +1,44 @@
+# NASDAQ Stock Market
+mic: XNAS
+name: NASDAQ Stock Market
+country: US
+currency: USD
+timezone: America/New_York
+calendar: XNAS
+sessions:
+  regular:
+    open: "09:30"
+    close: "16:00"
+settlement: T+1
+benchmark: "XNAS:QQQ"
+lot_size: 1
+tick_size:
+  - { below: 1.0, tick: 0.0001 }
+  - { below: .inf, tick: 0.01 }
+price_limits:
+  type: percent_band
+  bands_source: provider
+short_selling:
+  intraday: true
+  overnight: true
+  borrow_cost_bps_annual: 50.0
+costs:
+  commission:
+    type: zero
+    bps: 0.0
+  taxes:
+    - { name: sec_fee, side: sell, bps: 0.00278 }
+    - { name: finra_taf, side: sell, bps: 0.00119 }
+  exchange_fees:
+    bps: 0.3
+  spread_model: from_quotes_or_volatility
+  impact_model:
+    type: square_root
+    coefficient: 0.1
+fx:
+  quote_currency: USD
+data_defaults:
+  prices: [yahoo, polygon, tiingo]
+  filings: [sec_edgar]
+  fundamentals: [fmp]
+  news: [gdelt, rss]

@@ -1,0 +1,195 @@
+"""
+Price / volume feature computation.
+
+All features are computed from adjusted close prices and volume.
+The function respects PIT because bars are fetched with available_at <= as_of
+before being passed here — no data beyond as_of is ever read.
+"""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
+
+import numpy as np
+import polars as pl
+
+if TYPE_CHECKING:
+    from leantrade.data.store.pit import PITStore
+
+FEATURE_SET_VERSION = "price_volume_v1"
+
+
+def compute_price_volume_features(
+    bars: pl.DataFrame,
+    return_windows: list[int] | None = None,
+    mom_windows: list[int] | None = None,
+    vol_window: int = 20,
+) -> pl.DataFrame:
+    """
+    Compute price/volume features from OHLCV bars in-place.
+
+    Input columns required: instrument_id, event_time, close, volume
+    Optional: adj_close (falls back to close if absent)
+    Returns the same DataFrame with feature columns appended.
+    """
+    return_windows = return_windows or [1, 5, 20, 60]
+    mom_windows = mom_windows or [5, 20]
+
+    bars = bars.sort(["instrument_id", "event_time"])
+
+    # Use adjusted close if available; fall back to close
+    has_adj = "adj_close" in bars.columns
+    close_expr = (
+        pl.when(pl.col("adj_close").is_not_null()).then(pl.col("adj_close")).otherwise(pl.col("close"))
+        if has_adj
+        else pl.col("close")
+    )
+
+    exprs: list[pl.Expr] = []
+
+    # Log returns over multiple windows
+    for w in return_windows:
+        exprs.append(
+            (close_expr / close_expr.shift(w).over("instrument_id"))
+            .log()
+            .alias(f"ret_{w}d")
+        )
+
+    # Momentum: return from t-w-1 to t-1 (excludes most recent bar — avoids short-term reversal)
+    for w in mom_windows:
+        exprs.append(
+            (
+                close_expr.shift(1).over("instrument_id")
+                / close_expr.shift(w + 1).over("instrument_id")
+            )
+            .log()
+            .alias(f"mom_{w}d")
+        )
+
+    # EWMA volatility (annualised from daily log returns)
+    log_ret = (close_expr / close_expr.shift(1).over("instrument_id")).log()
+    exprs.append(
+        log_ret.ewm_std(span=vol_window, adjust=True)
+        .over("instrument_id")
+        .mul(math.sqrt(252))
+        .alias(f"ewma_vol_{vol_window}d")
+    )
+
+    # Volume surprise: log(vol / ewma_vol). Clip to >= 1 before logging so a
+    # zero-volume bar (illiquid stock, holiday half-day) produces 0 instead of
+    # -inf — an infinite feature value crashes every downstream model (ridge,
+    # LightGBM) that isn't expecting it.
+    vol_f = pl.col("volume").cast(pl.Float64, strict=False)
+    vol_f_safe = vol_f.clip(lower_bound=1.0)
+    exprs.append(
+        (vol_f_safe.log() - vol_f_safe.ewm_mean(span=vol_window).over("instrument_id").log())
+        .alias(f"vol_surprise_{vol_window}d")
+    )
+
+    # Amihud illiquidity proxy: |1-day return| / volume (rolling mean over vol_window)
+    amihud_raw = log_ret.abs() / vol_f.clip(lower_bound=1.0)
+    exprs.append(
+        amihud_raw.rolling_mean(window_size=vol_window).over("instrument_id")
+        .alias(f"amihud_{vol_window}d")
+    )
+
+    # 52-week high ratio (momentum at the slowest horizon)
+    exprs.append(
+        (close_expr / close_expr.rolling_max(window_size=252).over("instrument_id"))
+        .alias("high_52w_ratio")
+    )
+
+    return bars.with_columns(exprs)
+
+
+def feature_names(
+    return_windows: list[int] | None = None,
+    mom_windows: list[int] | None = None,
+    vol_window: int = 20,
+) -> list[str]:
+    """Return the feature column names produced by compute_price_volume_features."""
+    return_windows = return_windows or [1, 5, 20, 60]
+    mom_windows = mom_windows or [5, 20]
+    names = [f"ret_{w}d" for w in return_windows]
+    names += [f"mom_{w}d" for w in mom_windows]
+    names += [f"ewma_vol_{vol_window}d", f"vol_surprise_{vol_window}d",
+              f"amihud_{vol_window}d", "high_52w_ratio"]
+    return names
+
+
+@dataclass
+class PriceVolumeFeatureSet:
+    """
+    Versioned feature set for price/volume features.
+    Implements the FeatureSet protocol.
+    """
+
+    id: str = FEATURE_SET_VERSION
+    version: str = "1"
+    requires: list[str] = field(default_factory=lambda: ["bars_daily"])
+    return_windows: list[int] = field(default_factory=lambda: [1, 5, 20, 60])
+    mom_windows: list[int] = field(default_factory=lambda: [5, 20])
+    vol_window: int = 20
+
+    @property
+    def feature_names(self) -> list[str]:
+        return feature_names(self.return_windows, self.mom_windows, self.vol_window)
+
+    def compute(
+        self,
+        instruments: list,
+        as_of: datetime,
+        store: "PITStore",
+        lookback_days: int = 400,
+    ) -> pl.DataFrame:
+        """Return the most recent feature row per instrument (inference)."""
+        since = as_of - timedelta(days=lookback_days)
+        bars = store.query_bars(instruments, as_of=as_of, since=since)
+        if bars.is_empty():
+            return pl.DataFrame()
+        bars = _cast_ohlcv(bars)
+        featured = compute_price_volume_features(
+            bars, self.return_windows, self.mom_windows, self.vol_window
+        )
+        return (
+            featured.sort(["instrument_id", "event_time"])
+            .group_by("instrument_id")
+            .last()
+            .select(["instrument_id"] + self.feature_names)
+        )
+
+    def compute_history(
+        self,
+        instruments: list,
+        since: datetime,
+        until: datetime,
+        store: "PITStore",
+        lookback_days: int = 400,
+    ) -> pl.DataFrame:
+        """Return feature rows for all dates in [since, until] (training)."""
+        fetch_since = since - timedelta(days=lookback_days)
+        bars = store.query_bars(instruments, as_of=until, since=fetch_since)
+        if bars.is_empty():
+            return pl.DataFrame()
+        bars = _cast_ohlcv(bars)
+        featured = compute_price_volume_features(
+            bars, self.return_windows, self.mom_windows, self.vol_window
+        )
+        required = self.feature_names[:3]  # need at least ret_1d, ret_5d, ret_20d
+        return (
+            featured
+            .filter(
+                (pl.col("event_time") >= since) & (pl.col("event_time") <= until)
+            )
+            .select(["instrument_id", "event_time"] + self.feature_names)
+            .drop_nulls(subset=[c for c in required if c in featured.columns])
+        )
+
+
+def _cast_ohlcv(bars: pl.DataFrame) -> pl.DataFrame:
+    casts = {c: pl.Float64 for c in ["open", "high", "low", "close", "volume", "adj_close"]
+             if c in bars.columns}
+    return bars.with_columns([pl.col(c).cast(t, strict=False) for c, t in casts.items()])

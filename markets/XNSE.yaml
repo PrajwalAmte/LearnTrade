@@ -1,0 +1,54 @@
+# National Stock Exchange of India
+# Numbers are illustrative — verify current rates with your broker.
+mic: XNSE
+name: National Stock Exchange of India
+country: IN
+currency: INR
+timezone: Asia/Kolkata
+calendar: XBOM
+sessions:
+  regular:
+    open: "09:15"
+    close: "15:30"
+  pre_open:
+    open: "09:00"
+    close: "09:15"
+settlement: T+1
+benchmark: "XNSE:NIFTY50"
+lot_size: 1
+tick_size:
+  - { below: .inf, tick: 0.05 }
+price_limits:
+  type: percent_band
+  bands_source: provider   # SEBI circuit filter bands per stock
+short_selling:
+  intraday: true
+  overnight: false
+costs:
+  commission:
+    type: flat_or_bps
+    flat: 20.0
+    bps: 3.0
+    take: min
+  taxes:
+    - { name: stt_delivery, side: both, bps: 10.0, applies_to: delivery }
+    - { name: stt_intraday, side: sell, bps: 2.5, applies_to: intraday }
+    - { name: stamp_duty, side: buy, bps: 1.5 }
+  exchange_fees:
+    bps: 0.3
+  regulatory_fees:
+    bps: 0.01
+  vat_on_fees:
+    percent: 18.0
+    applies_to: [commission, exchange_fees]
+  spread_model: from_quotes_or_volatility
+  impact_model:
+    type: square_root
+    coefficient: 0.1
+fx:
+  quote_currency: INR
+data_defaults:
+  prices: [nse_bhavcopy, yahoo]
+  filings: [nse_disclosures]
+  fundamentals: [fmp]
+  news: [gdelt]

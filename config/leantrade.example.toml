@@ -1,0 +1,80 @@
+# ── Workspace ─────────────────────────────────────────────────────────────────
+[workspace]
+base_currency = "USD"
+data_dir = "./data"
+timezone = "UTC"            # display time zone; all storage is UTC
+
+# ── Markets ───────────────────────────────────────────────────────────────────
+[markets]
+enabled = ["XNYS", "XNAS"]
+
+[markets.XNYS.broker_costs]
+# commission = { type = "flat", amount = 0.0 }   # override with your broker's schedule
+
+# ── Universe ──────────────────────────────────────────────────────────────────
+[universe]
+XNYS = { source = "index_members", index = "SP500", point_in_time = true }
+XNAS = { source = "index_members", index = "NASDAQ100", point_in_time = true }
+
+# ── Data providers ────────────────────────────────────────────────────────────
+[data.providers]
+prices        = ["yahoo"]          # preference order; falls back down the list
+fundamentals  = ["fmp"]
+macro         = ["fred", "dbnomics"]
+news          = ["gdelt", "rss"]
+
+# ── Horizons ──────────────────────────────────────────────────────────────────
+[horizons]
+enabled = ["swing_5d", "swing_20d", "positional_60d"]
+
+# ── Quant engine ──────────────────────────────────────────────────────────────
+[quant]
+models                 = ["ridge", "lgbm", "lgbm_rank"]
+calibration            = "isotonic"
+pooled_across_markets  = true
+
+# ── LLM (set enabled = true and configure a provider to activate) ─────────────
+[llm]
+enabled                = false
+budget_usd_per_run     = 5.00
+budget_usd_per_day     = 20.00
+cache                  = true
+contamination_guard    = true
+safety_margin_days     = 30
+
+[llm.models.extract]
+provider = "openai_compatible"
+model    = "gpt-4o-mini"
+
+[llm.models.research]
+provider = "openai_compatible"
+model    = "gpt-4o"
+
+[llm.models.escalation]
+provider = "anthropic"
+model    = "claude-opus-4-5"
+
+[llm.escalation]
+on_quant_disagreement  = true
+on_uncertainty_above   = 0.6
+on_events              = ["earnings", "guidance", "corporate_action"]
+self_consistency_samples = 3
+
+# ── Portfolio ─────────────────────────────────────────────────────────────────
+[portfolio]
+allocator            = "hrp"
+max_position         = 0.05
+max_sector           = 0.25
+long_only            = true
+rebalance            = "weekly"
+
+# ── Risk ──────────────────────────────────────────────────────────────────────
+[risk]
+max_drawdown_stop  = 0.20
+daily_loss_stop    = 0.03
+kill_switch        = true
+
+# ── Execution ─────────────────────────────────────────────────────────────────
+[execution]
+mode                   = "paper"   # "backtest" | "paper" | "live"
+live_confirm_each_order = true

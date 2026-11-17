@@ -1,0 +1,45 @@
+mic: XLON
+name: London Stock Exchange
+country: GB
+currency: GBP
+timezone: Europe/London
+calendar: XLON
+sessions:
+  regular:
+    open: "08:00"
+    close: "16:30"
+  pre_market:
+    open: "07:50"
+    close: "08:00"
+settlement: T+2
+benchmark: "XLON:ISF"
+lot_size: 1
+tick_size:
+  - { below: 0.10, tick: 0.0001 }
+  - { below: 1.00, tick: 0.001 }
+  - { below: .inf, tick: 0.01 }
+price_limits:
+  type: none
+short_selling:
+  intraday: true
+  overnight: true
+  borrow_cost_bps_annual: 50.0
+costs:
+  commission:
+    type: bps
+    bps: 10.0
+  taxes:
+    - { name: stamp_duty, side: buy, bps: 50.0 }
+  exchange_fees:
+    bps: 0.5
+  regulatory_fees:
+    bps: 0.1
+  spread_model: from_quotes_or_volatility
+  impact_model:
+    type: square_root
+    coefficient: 0.1
+fx:
+  quote_currency: GBP
+data_defaults:
+  prices: [yahoo]
+  filings: []

@@ -1,0 +1,43 @@
+# Generic Market Pack — used as a fallback when no exchange-specific pack exists.
+# Override costs and rules in config/leantrade.toml under [markets.<MIC>.broker_costs].
+
+mic: GENERIC
+name: Generic Exchange
+country: ""
+currency: USD
+timezone: UTC
+calendar: GENERIC        # exchange_calendars "GENERIC" key; falls back to weekday schedule
+sessions:
+  regular:
+    open: "09:30"
+    close: "16:00"
+settlement: T+2
+benchmark: null
+lot_size: 1
+tick_size:
+  - { below: .inf, tick: 0.01 }
+price_limits:
+  type: none
+short_selling:
+  intraday: false
+  overnight: false
+costs:
+  commission:
+    type: bps
+    bps: 10.0
+  taxes: []
+  exchange_fees:
+    bps: 0.5
+  regulatory_fees:
+    bps: 0.01
+  spread_model: from_quotes_or_volatility
+  impact_model:
+    type: square_root
+    coefficient: 0.1
+fx:
+  quote_currency: USD
+data_defaults:
+  prices: [yahoo]
+  filings: []
+  fundamentals: []
+  news: []

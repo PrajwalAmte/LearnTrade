@@ -1,0 +1,25 @@
+# Swing trader profile — balanced risk level
+
+[profile]
+id = "swing_balanced"
+display_name = "Swing trader — Balanced"
+description = "1–4 week ideas reviewed a few times a week; momentum + events."
+
+[horizons]
+enabled = ["swing_5d", "swing_20d"]
+primary = "swing_20d"
+
+[portfolio]
+allocator = "inverse_vol"
+max_position = 0.06
+max_sector = 0.25
+long_only = true
+rebalance = "weekly"
+
+[risk]
+max_drawdown_stop = 0.15
+daily_loss_stop = 0.03
+drawdown_alert_pct = 0.15
+
+[execution]
+mode = "paper"

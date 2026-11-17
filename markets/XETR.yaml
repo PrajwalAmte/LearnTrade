@@ -1,0 +1,41 @@
+mic: XETR
+name: Deutsche Börse XETRA
+country: DE
+currency: EUR
+timezone: Europe/Berlin
+calendar: XETR
+sessions:
+  regular:
+    open: "09:00"
+    close: "17:30"
+settlement: T+2
+benchmark: "XETR:EXS1"
+lot_size: 1
+tick_size:
+  - { below: 10.0, tick: 0.001 }
+  - { below: 100.0, tick: 0.01 }
+  - { below: .inf, tick: 0.05 }
+price_limits:
+  type: none
+short_selling:
+  intraday: true
+  overnight: true
+  borrow_cost_bps_annual: 40.0
+costs:
+  commission:
+    type: bps
+    bps: 8.0
+  taxes: []
+  exchange_fees:
+    bps: 0.6
+  regulatory_fees:
+    bps: 0.05
+  spread_model: from_quotes_or_volatility
+  impact_model:
+    type: square_root
+    coefficient: 0.1
+fx:
+  quote_currency: EUR
+data_defaults:
+  prices: [yahoo]
+  filings: []

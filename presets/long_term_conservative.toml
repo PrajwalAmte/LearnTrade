@@ -1,0 +1,27 @@
+# Long-term investor profile — conservative risk level
+# Looks 2–6 months ahead; suited to monthly portfolio reviews.
+
+[profile]
+id = "long_term_conservative"
+display_name = "Long-term investor — Conservative"
+description = "Monthly reviews, fundamentals first, low turnover, capital preservation."
+
+[horizons]
+enabled = ["positional_60d", "positional_120d"]
+primary = "positional_60d"
+
+[portfolio]
+allocator = "hrp"
+max_position = 0.04
+max_sector = 0.20
+max_currency_exposure = {}
+long_only = true
+rebalance = "monthly"
+
+[risk]
+max_drawdown_stop = 0.10
+daily_loss_stop = 0.02
+drawdown_alert_pct = 0.10
+
+[execution]
+mode = "paper"
