@@ -71,7 +71,7 @@ class FactSheet:
 
         if self.recent_events:
             lines.extend(["─" * 50, "Recent events:"])
-            for ev in self.recent_events[:5]:
+            for ev in self.recent_events[:8]:
                 lines.append(f"  • {ev}")
 
         ev = self.evidence_summary
@@ -100,6 +100,7 @@ def build_fact_sheet(
     forecast: "Forecast | None" = None,
     evidence: dict[str, Any] | None = None,
     universe_size: int = 0,
+    recent_events: list[str] | None = None,
 ) -> FactSheet:
     """
     Build a FactSheet from pre-computed features and optional forecast.
@@ -134,7 +135,7 @@ def build_fact_sheet(
         volume_surprise=features.get("vol_surprise_20d"),
         high_52w_ratio=features.get("high_52w_ratio"),
         cross_sectional_rank=float(forecast.rank) if forecast and forecast.rank else None,
-        recent_events=[],
+        recent_events=recent_events or [],
         evidence_summary=evidence or {},
         quant_forecast=qf,
         universe_size=universe_size,

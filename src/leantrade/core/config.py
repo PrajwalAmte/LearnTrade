@@ -54,6 +54,9 @@ class DataProvidersConfig(BaseModel):
 
 class DataConfig(BaseModel):
     providers: DataProvidersConfig = Field(default_factory=DataProvidersConfig)
+    # RSS URL templates for the `rss` news provider; may use {ticker}, {symbol}, {mic}.
+    # Empty = built-in Yahoo Finance headline feed.
+    news_feeds: list[str] = Field(default_factory=list)
 
 
 class HorizonsConfig(BaseModel):

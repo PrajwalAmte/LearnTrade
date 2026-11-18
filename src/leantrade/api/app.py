@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from leantrade.api.routes import data, portfolio, research, setup, system
+from leantrade.api.routes import data, portfolio, research, setup, system, workspace
 
 
 def create_app() -> FastAPI:
@@ -40,6 +40,7 @@ def create_app() -> FastAPI:
     app.include_router(portfolio.router, prefix="/api/portfolio")
     app.include_router(research.router,  prefix="/api/research")
     app.include_router(setup.router,     prefix="/api/setup")
+    app.include_router(workspace.router, prefix="/api/app")
 
     # Serve pre-built UI bundle if it exists
     static_dir = Path(__file__).parent / "static"

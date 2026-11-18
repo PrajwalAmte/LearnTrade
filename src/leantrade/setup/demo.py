@@ -52,7 +52,8 @@ def generate_demo_data(
     Returns the number of observations ingested.
     """
     rng = np.random.default_rng(seed)
-    start = start_date or (datetime.now(tz=UTC) - timedelta(days=n_days + 30))
+    # 5 trading days per 7 calendar days, so the history ends ~today (not in the future).
+    start = start_date or (datetime.now(tz=UTC) - timedelta(days=int(n_days * 7 / 5) + 2))
 
     all_symbols: list[str] = [sym for syms in _SECTORS.values() for sym in syms]
     n = len(all_symbols)

@@ -10,6 +10,7 @@ wizard at `leantrade serve --open`) to create config/leantrade.toml.
 
 from __future__ import annotations
 
+import json
 import logging
 import sys
 from datetime import datetime, timezone
@@ -83,6 +84,27 @@ def serve(
         log_level=log_level,
         reload=False,
     )
+
+
+# ---------------------------------------------------------------------------
+# demo
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def demo(
+    days: int = typer.Option(600, help="Trading days of fake history to create"),
+) -> None:
+    """Create clearly-labelled FAKE market data (50 made-up stocks) to try the tool offline."""
+    from leantrade.core.config import get_config
+    from leantrade.data.store.pit import PITStore
+    from leantrade.setup.demo import generate_demo_data
+
+    _setup_logging()
+    cfg = get_config()
+    with PITStore(cfg.workspace.data_dir) as store:
+        n = generate_demo_data(store, "XNYS", n_days=days)
+    console.print(f"[green]✓[/] Created {n} fake price points for 50 made-up stocks (market XNYS).")
 
 
 # ---------------------------------------------------------------------------
@@ -607,6 +629,17 @@ def analyze(
                 f"model's forecast. Run `leantrade train` first.[/]"
             )
 
+        headlines, _ = _news_context(cfg, str(iid), datetime.now(tz=timezone.utc))
+        if headlines:
+            console.print("\n[bold]Recent news[/]")
+            for h in headlines:
+                console.print(f"  • {h}")
+        else:
+            console.print(
+                "[dim]No news stored for this instrument. "
+                "Run `leantrade news pull` to fetch headlines.[/]"
+            )
+
         thesis = None
         counter_thesis = None
         agreement = None
@@ -621,9 +654,11 @@ def analyze(
                 router = LLMRouter()
                 feat_row_df = PriceVolumeFeatureSet().compute([iid], datetime.now(tz=timezone.utc), store)
                 feat_row = feat_row_df.row(0, named=True) if not feat_row_df.is_empty() else {}
+                events, news_evidence = _news_context(cfg, str(iid), datetime.now(tz=timezone.utc))
                 fact_sheet = build_fact_sheet(
                     str(iid), datetime.now(tz=timezone.utc), horizon, feat_row,
                     forecast=fc, universe_size=len(forecasts),
+                    recent_events=events, evidence=news_evidence,
                 )
                 orchestrator = ResearchOrchestrator(router)
                 result = asyncio.run(orchestrator.analyze(fact_sheet, fc))
@@ -653,6 +688,164 @@ def analyze(
         db_path = cfg.workspace.data_dir / "attribution.duckdb"
         with AttributionStore(db_path) as attr_store:
             attr_store.write(record)
+
+
+# ---------------------------------------------------------------------------
+# news
+# ---------------------------------------------------------------------------
+
+news_app = typer.Typer(help="News: pull headlines, extract evidence, browse.")
+app.add_typer(news_app, name="news")
+
+
+def _corpus_path(cfg: Any) -> Path:
+    return cfg.workspace.data_dir / "corpus.duckdb"
+
+
+def _news_context(cfg: Any, instrument_id: str, as_of: datetime) -> tuple[list[str], dict[str, Any]]:
+    """Headlines (+ event tags) and averaged LLM evidence for one instrument, PIT at ``as_of``."""
+    from leantrade.data.corpus.news import evidence_summary_for, recent_headlines, tag_events
+    from leantrade.data.corpus.store import CorpusStore
+
+    path = _corpus_path(cfg)
+    if not path.exists():
+        return [], {}
+    corpus = CorpusStore(path)
+    try:
+        heads = recent_headlines(corpus, instrument_id, as_of)
+        tags = sorted(tag_events(heads))
+        events = [f"[{t}]" for t in tags] + heads
+        return events, evidence_summary_for(corpus, instrument_id, as_of)
+    finally:
+        corpus.close()
+
+
+@news_app.command("pull")
+def news_pull(
+    market: Optional[str] = typer.Option(None, help="Limit to one MIC (default: all enabled)"),
+    days: int = typer.Option(7, help="How many days back to fetch"),
+) -> None:
+    """Fetch headlines for the universe and store them (point-in-time)."""
+    from datetime import timedelta
+    from leantrade.core.config import get_config
+    from leantrade.data.corpus.news import ingest_news
+    from leantrade.data.corpus.store import CorpusStore
+    from leantrade.data.engine import DataEngine
+    from leantrade.data.store.pit import PITStore
+
+    _setup_logging()
+    cfg = get_config()
+    if not cfg.data.providers.news:
+        cfg.data.providers.news = ["rss"]
+        console.print("[dim]No news provider configured — using the free 'rss' default.[/]")
+    now = datetime.now(tz=timezone.utc)
+    since = now - timedelta(days=days)
+    markets = [market] if market else cfg.markets_enabled
+
+    with PITStore(cfg.workspace.data_dir) as store:
+        summary = DataEngine.from_config(store, cfg).pull(
+            since, now, markets=markets, capabilities={"news"}
+        )
+        for r in summary.results:
+            status = "[green]✓[/]" if r.success else f"[red]✗ {r.error}[/]"
+            console.print(f"  {status} {r.provider_id} {r.market}: {r.observations_added} items")
+        df = store.query_observations(as_of=now, since=since, kind="news")
+    from leantrade.core.types import InstrumentId, Observation
+    rows = []
+    for r in df.iter_rows(named=True):
+        payload = r["payload"]
+        rows.append(Observation(
+            instrument_id=InstrumentId(r["instrument_id"]) if r["instrument_id"] else None,
+            source_id=r["source_id"], kind="news",
+            event_time=r["event_time"], available_at=r["available_at"],
+            payload=json.loads(payload) if isinstance(payload, str) else payload,
+            pit_level=r["pit_level"],
+        ))
+    corpus = CorpusStore(_corpus_path(cfg))
+    try:
+        added = ingest_news(rows, corpus)
+        console.print(f"[green]✓[/] {added} new articles in corpus ({corpus.document_count()} total)")
+    finally:
+        corpus.close()
+
+
+@news_app.command("extract")
+def news_extract(
+    limit: int = typer.Option(50, help="Max articles to process this run"),
+) -> None:
+    """Run the LLM over new articles once each (cached; needs [llm] enabled)."""
+    import asyncio
+    from leantrade.core.config import get_config
+    from leantrade.data.corpus.store import CorpusStore
+
+    _setup_logging()
+    cfg = get_config()
+    if not cfg.llm.enabled:
+        console.print("[yellow]LLM is disabled ([llm] enabled = false). Headlines still work "
+                      "without it; enable the LLM only if you want structured evidence.[/]")
+        raise typer.Exit(0)
+    path = _corpus_path(cfg)
+    if not path.exists():
+        console.print("[red]No corpus yet — run `leantrade news pull` first.[/]")
+        raise typer.Exit(1)
+
+    from leantrade.llm.extraction.extractor import EvidenceExtractor
+    from leantrade.llm.router import LLMRouter
+
+    corpus = CorpusStore(path)
+    try:
+        docs = corpus.unextracted_documents(datetime.now(tz=timezone.utc).replace(tzinfo=None),
+                                            limit=limit)
+        if not docs:
+            console.print("Nothing new to extract.")
+            return
+        extractor = EvidenceExtractor(LLMRouter())
+
+        async def run() -> int:
+            n = 0
+            for d in docs:
+                try:
+                    ev = await extractor.extract(
+                        d["doc_id"], f"{d['title']}\n{d['body'] or ''}", d["instrument_ids"],
+                        d["available_at"].replace(tzinfo=timezone.utc), verify=False,
+                    )
+                    corpus.save_evidence(ev)
+                    n += 1
+                except Exception as exc:
+                    console.print(f"[yellow]skip {d['title'][:50]!r}: {exc}[/]")
+            return n
+
+        n = asyncio.run(run())
+        console.print(f"[green]✓[/] extracted evidence for {n}/{len(docs)} articles")
+    finally:
+        corpus.close()
+
+
+@news_app.command("show")
+def news_show(
+    instrument: str = typer.Argument(help="Instrument ID, e.g. XNSE:RELIANCE"),
+    days: int = typer.Option(14, help="Look-back window in days"),
+) -> None:
+    """Show stored headlines for one instrument."""
+    from leantrade.core.config import get_config
+    from leantrade.data.corpus.news import recent_headlines
+    from leantrade.data.corpus.store import CorpusStore
+
+    cfg = get_config()
+    path = _corpus_path(cfg)
+    if not path.exists():
+        console.print("[red]No corpus yet — run `leantrade news pull` first.[/]")
+        raise typer.Exit(1)
+    corpus = CorpusStore(path)
+    try:
+        heads = recent_headlines(corpus, instrument.upper(), datetime.now(tz=timezone.utc),
+                                 days=days, limit=30)
+    finally:
+        corpus.close()
+    if not heads:
+        console.print(f"No stored news for {instrument} in the last {days} days.")
+    for h in heads:
+        console.print(f"  • {h}")
 
 
 # ---------------------------------------------------------------------------

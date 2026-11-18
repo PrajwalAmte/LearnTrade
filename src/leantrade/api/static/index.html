@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LeanTrade</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#16202a;--muted:#5d6b78;--line:#e3e7ec;--accent:#1f6feb;--good:#12805c;--bad:#b3261e;--warn:#8a5a00;--warnbg:#fff4d6}
+@media (prefers-color-scheme:dark){:root{--bg:#10151b;--card:#18202a;--ink:#e8edf2;--muted:#93a1ae;--line:#2a3541;--accent:#5b9bff;--good:#3ecf9a;--bad:#ff8a80;--warn:#f1c765;--warnbg:#3a2f12}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:960px;margin:0 auto;padding:16px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:8px 0 16px}
+h1{font-size:22px;margin:0}
+.pill{font-size:13px;padding:3px 10px;border-radius:99px;background:var(--warnbg);color:var(--warn);font-weight:600}
+.pill.real{background:#d9f3e8;color:#0b5e43}
+@media (prefers-color-scheme:dark){.pill.real{background:#12382c;color:#3ecf9a}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+.card h2{margin:0 0 6px;font-size:18px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+button,select,textarea,input{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--line);background:var(--card);padding:10px 16px;border-radius:10px}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+button:disabled{opacity:.5;cursor:default}
+select,textarea,input{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px;width:100%}
+textarea{min-height:90px;resize:vertical}
+label{display:block;margin:12px 0 4px;font-weight:600;font-size:14px}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.row>*{flex:1 1 220px}
+.choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.choice{border:1px solid var(--line);border-radius:12px;padding:16px}
+.notice{background:var(--warnbg);color:var(--warn);border-radius:10px;padding:10px 14px;font-size:14px;margin-bottom:16px}
+.err{background:#fde7e5;color:var(--bad);border-radius:10px;padding:10px 14px;margin-top:12px;font-size:14px}
+@media (prefers-color-scheme:dark){.err{background:#3b1714}}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);font-size:15px}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+tbody tr{cursor:pointer}tbody tr:hover{background:var(--bg)}
+.pos{color:var(--good);font-weight:600}.neg{color:var(--bad);font-weight:600}
+.bar{height:8px;border-radius:4px;background:var(--line);position:relative;min-width:70px}
+.bar i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--accent)}
+.steps{list-style:none;padding:0;margin:12px 0}
+.steps li{padding:6px 0;display:flex;gap:10px;align-items:center}
+.dot{width:22px;display:inline-flex;justify-content:center}
+pre{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;overflow:auto;max-height:180px;font-size:12px;white-space:pre-wrap}
+.ic{width:1.1em;height:1.1em;vertical-align:-.18em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ic.lg{width:1.2em;height:1.2em;color:var(--accent)}
+.hide{display:none!important}
+.big{font-size:28px;font-weight:700}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:12px 0}
+.stat{border:1px solid var(--line);border-radius:10px;padding:12px}
+.news li{margin:6px 0}
+footer{color:var(--muted);font-size:13px;text-align:center;padding:12px 0 28px}
+@media (max-width:560px){.hide-sm{display:none}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+<symbol id="i-chart" viewBox="0 0 24 24"><polyline points="3 17 9 11 13 15 21 6"/><polyline points="15 6 21 6 21 12"/></symbol>
+<symbol id="i-flask" viewBox="0 0 24 24"><path d="M9 3h6M10 3v6L4.5 19a1.5 1.5 0 0 0 1.3 2.2h12.4a1.5 1.5 0 0 0 1.3-2.2L14 9V3"/><path d="M7.5 15h9"/></symbol>
+<symbol id="i-bars" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.5-3.5L3 10"/><path d="M3 4v6h6"/><path d="M4 13a8 8 0 0 0 14.5 3.5L21 14"/><path d="M21 20v-6h-6"/></symbol>
+<symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M11 18l-6-6 6-6"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></symbol>
+<symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></symbol>
+</defs></svg>
+<div class="wrap">
+<header>
+  <h1><svg class="ic lg" aria-hidden="true"><use href="#i-chart"/></svg> LeanTrade</h1>
+  <div><span id="modePill" class="pill hide"></span></div>
+</header>
+
+<div class="notice">LeanTrade gives <b>information, not advice</b>. It never buys or sells anything for you, and nobody can predict markets perfectly. Never invest money you can't afford to lose.</div>
+
+<!-- Welcome / setup -->
+<section id="welcome" class="card hide">
+  <h2>Welcome! Let's get you started</h2>
+  <p class="muted">Pick one. You can always change your mind later.</p>
+  <div class="choices">
+    <div class="choice">
+      <b><svg class="ic " aria-hidden="true"><use href="#i-flask"/></svg> Try the demo</b>
+      <p class="muted small">Uses made-up stocks, so you can look around safely. Takes about a minute. No internet needed.</p>
+      <button class="primary" id="btnDemo">Start the demo</button>
+    </div>
+    <div class="choice">
+      <b><svg class="ic " aria-hidden="true"><use href="#i-bars"/></svg> Use real stocks</b>
+      <p class="muted small">Tell us your country's market and the stocks you care about. Takes a few minutes the first time.</p>
+      <button id="btnShowReal">Choose my stocks</button>
+    </div>
+  </div>
+  <div id="realForm" class="hide">
+    <label for="mic">Which stock market?</label>
+    <select id="mic"></select>
+    <label for="symbols">Which stocks? (at least 8, separated by commas or new lines)</label>
+    <textarea id="symbols" placeholder="Example for India: RELIANCE, TCS, INFY, HDFCBANK, ICICIBANK, ITC, LT, SBIN"></textarea>
+    <p class="muted small">Use the short ticker symbol, without the exchange name. Not sure? Search the company on your broker's app — the short code is the symbol.</p>
+    <button class="primary" id="btnReal">Download data &amp; set up</button>
+  </div>
+  <div id="startErr" class="err hide"></div>
+</section>
+
+<!-- Progress -->
+<section id="progress" class="card hide">
+  <h2 id="jobTitle">Working…</h2>
+  <p class="muted small">Please keep this window open. This can take a few minutes the first time.</p>
+  <ul class="steps" id="jobSteps"></ul>
+  <details><summary class="small muted">Show technical details</summary><pre id="jobLog"></pre></details>
+  <div id="jobErr" class="err hide"></div>
+  <button id="btnJobOk" class="hide primary">Continue</button>
+</section>
+
+<!-- Main -->
+<section id="main" class="hide">
+  <div class="card">
+    <div class="row" style="align-items:end">
+      <div><label for="marketSel">Market</label><select id="marketSel"></select></div>
+      <div><label for="horizonSel">Looking ahead</label>
+        <select id="horizonSel">
+          <option value="swing_5d">About 1 week</option>
+          <option value="swing_20d" selected>About 1 month</option>
+          <option value="positional_60d">About 3 months</option>
+        </select></div>
+      <div style="flex:0 0 auto"><button id="btnRefresh"><svg class="ic " aria-hidden="true"><use href="#i-refresh"/></svg> Update data</button></div>
+    </div>
+    <p id="srcNote" class="small muted" style="margin-bottom:0"></p>
+  </div>
+
+  <div class="card">
+    <h2>Stocks, ranked</h2>
+    <p class="muted small">Ranked from strongest to weakest outlook <i>compared with the other stocks in your list</i>. Tap a stock for details.</p>
+    <div id="roughNote" class="notice hide">These are rough guesses based only on recent price momentum — the model isn't trained for this view yet. Tap “Update data” to train it.</div>
+    <div id="weakNote" class="notice hide">The model did not find a reliable pattern in this group of stocks (every stock gets almost the same chance). Treat the order below as a weak hint, not a signal. A longer list of stocks usually helps.</div>
+    <div id="rankErr" class="err hide"></div>
+    <table>
+      <thead><tr><th>#</th><th>Stock</th><th>Outlook</th><th class="hide-sm">Chance it rises</th><th class="hide-sm">Bumpiness</th></tr></thead>
+      <tbody id="rankBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Detail -->
+<section id="detail" class="hide">
+  <button id="btnBack" style="margin-bottom:12px"><svg class="ic " aria-hidden="true"><use href="#i-back"/></svg> Back to the list</button>
+  <div class="card">
+    <h2 id="dName"></h2>
+    <p class="muted small" id="dSub"></p>
+    <div class="stats">
+      <div class="stat"><div class="small muted">Outlook vs. the market</div><div class="big" id="dExp"></div><div class="small muted" id="dExpNote"></div></div>
+      <div class="stat"><div class="small muted">Chance it ends higher</div><div class="big" id="dUp"></div><div class="small muted">Not a promise — a probability.</div></div>
+      <div class="stat"><div class="small muted">Typical range</div><div class="big" id="dRange" style="font-size:20px"></div><div class="small muted">Most outcomes land in here.</div></div>
+    </div>
+    <div id="dRough" class="notice hide">Rough guess only (no trained model yet).</div>
+    <div id="chart"></div>
+    <p class="small muted" style="margin:4px 0 0">Price over the last ~6 months.</p>
+  </div>
+  <div class="card">
+    <h2>Recent news</h2>
+    <ul class="news" id="dNews"></ul>
+    <p class="small muted" id="dNoNews">No headlines stored yet. Tap “Update data” to fetch them.</p>
+  </div>
+</section>
+
+<footer>LeanTrade runs on your own computer. Your data stays with you. · <a href="/api/docs" style="color:inherit">For developers</a></footer>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const show = (id, on=true) => $(id).classList.toggle('hide', !on);
+const pct = (x, d=1) => (x>=0?'+':'') + (x*100).toFixed(d) + '%';
+let STATE = null, POLL = null;
+
+async function api(path, opts) {
+  const r = await fetch('/api/app' + path, opts);
+  let body = null; try { body = await r.json(); } catch(e) {}
+  if (!r.ok) throw new Error((body && body.detail) || ('Something went wrong (' + r.status + ')'));
+  return body;
+}
+const post = (p, data) => api(p, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data||{})});
+
+function view(name) {
+  for (const s of ['welcome','progress','main','detail']) show(s, s===name);
+}
+
+async function boot() {
+  try { STATE = await api('/state'); }
+  catch(e) { view('welcome'); return showErr('startErr', e.message); }
+  if (STATE.busy && STATE.job) return trackJob(STATE.job.id);
+  const markets = STATE.markets;
+  const pill = $('modePill');
+  if (!markets.length) { pill.classList.add('hide'); await loadMarkets(); return view('welcome'); }
+  const demo = markets.every(m => m.demo);
+  pill.textContent = demo ? 'Demo — made-up data' : 'Real market data';
+  pill.className = 'pill' + (demo ? '' : ' real');
+  $('marketSel').innerHTML = markets.map(m => `<option value="${m.mic}">${m.mic} (${m.instruments} stocks${m.demo?', demo':''})</option>`).join('');
+  $('btnRefresh').disabled = demo;
+  $('btnRefresh').title = demo ? 'The demo uses made-up data, so there is nothing to update.' : '';
+  view('main');
+  loadRank();
+}
+
+async function loadMarkets() {
+  try {
+    const {markets} = await api('/markets');
+    $('mic').innerHTML = markets.map(m => `<option value="${m.mic}">${m.name||m.mic} — ${m.country||''} ${m.currency?('('+m.currency+')'):''} [${m.mic}]</option>`).join('');
+  } catch(e) {}
+}
+
+function showErr(id, msg) { const e = $(id); e.textContent = msg; e.classList.remove('hide'); }
+
+async function loadRank() {
+  show('rankErr', false); show('roughNote', false); show('weakNote', false);
+  $('rankBody').innerHTML = '<tr><td colspan="5" class="muted">Loading…</td></tr>';
+  try {
+    const d = await api(`/rank?market=${$('marketSel').value}&horizon=${$('horizonSel').value}`);
+    if (!d.ready) {
+      $('rankBody').innerHTML = '';
+      return showErr('rankErr', 'No data for this market yet. Tap “Update data”.');
+    }
+    show('roughNote', d.rough);
+    const ps = d.rows.map(r => r.p_up);
+    show('weakNote', !d.rough && (Math.max(...ps) - Math.min(...ps)) < 0.01);
+    $('srcNote').textContent = `Outlook is measured over ${d.horizon_label}, relative to the market. ${d.count} stocks.`;
+    const maxAbs = Math.max(...d.rows.map(r => Math.abs(r.expected_return)), 1e-9);
+    $('rankBody').innerHTML = '';
+    for (const r of d.rows) {
+      const tr = document.createElement('tr');
+      const w = Math.round(50 + 50 * r.expected_return / maxAbs);
+      tr.innerHTML = `<td>${r.rank}</td><td><b></b><div class="small muted"></div></td>
+        <td><div class="${r.expected_return>=0?'pos':'neg'}">${pct(r.expected_return)}</div>
+            <div class="bar"><i style="width:${w}%"></i></div></td>
+        <td class="hide-sm">${r.rough||d.rough?'—':(r.p_up*100).toFixed(0)+'%'}</td>
+        <td class="hide-sm">${(r.risk*100).toFixed(0)}%</td>`;
+      tr.querySelector('b').textContent = r.symbol;
+      tr.querySelector('.small').textContent = r.label;
+      tr.onclick = () => openStock(r.instrument);
+      $('rankBody').appendChild(tr);
+    }
+  } catch(e) { $('rankBody').innerHTML=''; showErr('rankErr', e.message); }
+}
+
+function spark(points) {
+  if (points.length < 2) return '';
+  const W=600,H=140,min=Math.min(...points.map(p=>p.c)),max=Math.max(...points.map(p=>p.c));
+  const x=i=>i/(points.length-1)*W, y=c=>H-6-(c-min)/((max-min)||1)*(H-12);
+  const d=points.map((p,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(p.c).toFixed(1)).join(' ');
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Price chart"><path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2"/></svg>`;
+}
+
+async function openStock(iid) {
+  view('detail');
+  $('dName').textContent = iid.split(':')[1];
+  $('dSub').textContent = 'Loading…';
+  try {
+    const d = await api(`/stock/${encodeURIComponent(iid)}?horizon=${$('horizonSel').value}`);
+    $('dName').textContent = d.symbol;
+    $('dSub').textContent = `${d.instrument} · looking ahead ${d.horizon_label}`;
+    $('dExp').textContent = pct(d.expected_return);
+    $('dExp').className = 'big ' + (d.expected_return>=0?'pos':'neg');
+    $('dExpNote').textContent = d.expected_return>=0 ? 'expected to do better than the market' : 'expected to do worse than the market';
+    $('dUp').textContent = d.rough ? '—' : (d.p_up*100).toFixed(0)+'%';
+    $('dRange').textContent = `${pct(d.low,0)} to ${pct(d.high,0)}`;
+    show('dRough', d.rough);
+    $('chart').innerHTML = spark(d.closes);
+    const ul = $('dNews'); ul.innerHTML='';
+    for (const n of d.news) { const li=document.createElement('li'); li.textContent=n; ul.appendChild(li); }
+    show('dNoNews', d.news.length===0);
+  } catch(e) { $('dSub').textContent = e.message; }
+}
+
+function trackJob(id) {
+  view('progress'); show('jobErr', false); show('btnJobOk', false);
+  clearInterval(POLL);
+  const tick = async () => {
+    let j; try { j = await api('/jobs/' + id); } catch(e) { return; }
+    $('jobTitle').textContent = j.title;
+    $('jobSteps').innerHTML = j.steps.map((s,i) => {
+      const done = i < j.current || j.status==='done', cur = i===j.current && j.status==='running';
+      const name = done ? 'check' : cur ? 'clock' : (j.status==='failed' && i===j.current ? 'x' : 'dot');
+      const cls = done ? 'pos' : (name==='x' ? 'neg' : 'muted');
+      const icon = `<svg class="ic ${cls}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+      return `<li><span class="dot">${icon}</span><span${cur?' style="font-weight:600"':''}></span></li>`;
+    }).join('');
+    [...$('jobSteps').querySelectorAll('li span:last-child')].forEach((el,i)=> el.textContent = j.steps[i]);
+    $('jobLog').textContent = j.log_tail.join('\n');
+    if (j.status !== 'running') {
+      clearInterval(POLL);
+      if (j.status === 'failed') { showErr('jobErr', j.error + ' Check your internet connection and the stock symbols, then try again.'); }
+      $('btnJobOk').textContent = j.status==='done' ? 'Show my results' : 'Go back';
+      show('btnJobOk', true);
+    }
+  };
+  tick(); POLL = setInterval(tick, 1500);
+}
+
+$('btnDemo').onclick = async () => { try { const j = await post('/start', {mode:'demo'}); trackJob(j.id); } catch(e) { showErr('startErr', e.message); } };
+$('btnShowReal').onclick = () => show('realForm', true);
+$('btnReal').onclick = async () => {
+  show('startErr', false);
+  try { const j = await post('/start', {mode:'real', mic:$('mic').value, symbols:$('symbols').value}); trackJob(j.id); }
+  catch(e) { showErr('startErr', e.message); }
+};
+$('btnRefresh').onclick = async () => { try { const j = await post('/refresh'); trackJob(j.id); } catch(e) { showErr('rankErr', e.message); } };
+$('btnJobOk').onclick = boot;
+$('btnBack').onclick = () => view('main');
+$('marketSel').onchange = loadRank; $('horizonSel').onchange = loadRank;
+boot();
+</script>
+</body>
+</html>

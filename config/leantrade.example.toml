@@ -21,7 +21,7 @@ XNAS = { source = "index_members", index = "NASDAQ100", point_in_time = true }
 prices        = ["yahoo"]          # preference order; falls back down the list
 fundamentals  = ["fmp"]
 macro         = ["fred", "dbnomics"]
-news          = ["gdelt", "rss"]
+news          = ["rss"]          # "gdelt" = global + deeper history, but ~5 s per stock
 
 # ── Horizons ──────────────────────────────────────────────────────────────────
 [horizons]
