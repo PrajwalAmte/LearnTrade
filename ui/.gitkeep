@@ -1,9 +1,0 @@
-# React + TypeScript (Vite) UI source.
-#
-# The pre-built bundle is committed to src/leantrade/api/static/ by CI,
-# so no Node is required at runtime.
-#
-# Development:
-#   npm install
-#   npm run dev      # Vite dev server on http://localhost:5173 with HMR
-#   npm run build    # builds to ../src/leantrade/api/static/

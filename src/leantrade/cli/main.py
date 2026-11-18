@@ -389,6 +389,68 @@ def _generate_current_forecasts(
     return fallback, "raw momentum fallback (no trained model)"
 
 
+def _forecast_outside_universe(
+    cfg: Any, store: Any, iid: Any, horizon: str, model_name: str, universe_forecasts: list[Any]
+) -> tuple[Any | None, dict[str, Any], str]:
+    """
+    Score ONE stock that is not in the stored universe.
+
+    Downloads ~2 years of its prices (so features can be computed), scores it with
+    the already-trained model, and reports where it would rank among the universe's
+    current forecasts. Returns (forecast_or_None, context, message).
+
+    Only absolute-score models can do this: the ranker min-max-normalises within the
+    cross-section, so a lone stock has no meaningful score. For those we say so.
+    """
+    from datetime import timedelta
+    from leantrade.core.config import get_secrets
+    from leantrade.data.providers.base import FetchRequest
+    from leantrade.data.providers.registry import ProviderRegistry
+    from leantrade.features.price_volume import PriceVolumeFeatureSet
+
+    market = iid.mic
+    model, calibrator = _load_trained_model(cfg, market, horizon, model_name)
+    if model is None:
+        return None, {}, (f"No trained {model_name} model for {market}. Set up and train on a list "
+                          f"of stocks first.")
+    if model_name == "lgbm_rank":
+        return None, {}, ("The ranking model only compares stocks inside a list. "
+                          "Use the ridge or lgbm model to check a single stock.")
+
+    now = datetime.now(tz=timezone.utc)
+    pid = (cfg.data.providers.prices or ["yahoo"])[0]
+    provider = ProviderRegistry(cfg, get_secrets()).get(pid)
+    if provider is None:
+        return None, {}, f"Price source {pid!r} is not available."
+    req = FetchRequest("bars_daily", now - timedelta(days=730), now,
+                       instruments={iid}, market=market)
+    try:
+        obs = list(provider.fetch(req))
+    except Exception as exc:
+        return None, {}, f"Could not download prices for {iid}: {exc}"
+    if len(obs) < 60:
+        return None, {}, (f"Not enough price history for {iid} ({len(obs)} days found). "
+                          f"Check the symbol.")
+    store.ingest(obs)
+
+    # Re-take 'now': the new bars carry their download time as available_at, so a
+    # timestamp from before the fetch would (correctly) hide them as 'future' data.
+    now = datetime.now(tz=timezone.utc)
+    fs = PriceVolumeFeatureSet()
+    feats = fs.compute([iid], now, store)
+    if feats.is_empty():
+        return None, {}, f"Could not compute indicators for {iid} (too little history)."
+    cols = [c for c in fs.feature_names if c in feats.columns]
+    fcs = model.predict_distribution(feats.select(cols), [iid], now)
+    fcs = _apply_calibration(fcs, calibrator)
+    if not fcs:
+        return None, {}, f"The model could not score {iid}."
+    fc = fcs[0]
+    higher = sum(1 for f in universe_forecasts if f.expected_return > fc.expected_return)
+    ctx = {"would_rank": higher + 1, "of": len(universe_forecasts) + 1}
+    return fc, ctx, "ok"
+
+
 # ---------------------------------------------------------------------------
 # backtest
 # ---------------------------------------------------------------------------
@@ -608,11 +670,18 @@ def analyze(
         if source == "no_universe":
             console.print(f"[red]No universe for {market}. Run `leantrade universe import`.[/]")
             raise typer.Exit(1)
-        if source == "no_features" or fc is None:
-            console.print(
-                f"[red]No data for {instrument}. Run `leantrade data pull` "
-                f"(and check it's in the {market} universe).[/]"
-            )
+        outside_ctx: dict[str, Any] = {}
+        if fc is None:
+            # Not in the stored list: score it on its own against the trained model.
+            console.print(f"[dim]{instrument} is not in your list — fetching its prices…[/]")
+            fc, outside_ctx, msg = _forecast_outside_universe(
+                cfg, store, iid, horizon, model, forecasts)
+            if fc is None:
+                console.print(f"[red]{msg}[/]")
+                raise typer.Exit(1)
+            source = f"trained model, single-stock check ({fc.model_id})"
+        elif source == "no_features":
+            console.print(f"[red]No data for {instrument}. Run `leantrade data pull`.[/]")
             raise typer.Exit(1)
 
         console.print(f"\n[bold]{instrument}[/] — {horizon} [dim]({source})[/]")
@@ -623,6 +692,11 @@ def analyze(
         console.print(
             f"  Range (5–95%): {fc.quantiles.q05:+.2%} to {fc.quantiles.q95:+.2%}"
         )
+        if outside_ctx:
+            console.print(
+                f"  Would rank [bold]{outside_ctx['would_rank']}[/] of {outside_ctx['of']} "
+                f"compared with your list's current forecasts."
+            )
         if source.startswith("raw momentum"):
             console.print(
                 f"[yellow]This is an uncalibrated momentum proxy, not a trained "

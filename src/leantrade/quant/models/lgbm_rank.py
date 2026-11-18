@@ -14,6 +14,7 @@ import numpy as np
 import polars as pl
 
 from leantrade.core.types import Forecast, ForecastQuantiles, InstrumentId
+from leantrade.quant.models._vol_scale import vol_column, vol_scales
 
 
 class LGBMRankModel:
@@ -146,6 +147,8 @@ class LGBMRankModel:
         if hasattr(self, "_medians") and self._medians is not None:
             for j in range(X_np.shape[1]):
                 X_np[np.isnan(X_np[:, j]), j] = self._medians[j]
+        sc = vol_scales(X_np, list(self._feature_names), getattr(self, "_medians", None))
+        own_vol = vol_column(X_np, list(self._feature_names))
         raw = self._model.predict(X_np)
         lo, hi = raw.min(), raw.max()
         norm = (raw - lo) / (hi - lo + 1e-9)   # cross-sectional percentile, [0, 1]
@@ -163,13 +166,13 @@ class LGBMRankModel:
                 horizon=self.horizon,
                 expected_return=float(pseudo_return[i]),
                 p_positive=float(np.clip(norm[i], 0.01, 0.99)),
-                volatility=0.2,
+                volatility=float(own_vol[i]) if own_vol is not None and np.isfinite(own_vol[i]) and own_vol[i] > 0 else 0.2,
                 quantiles=ForecastQuantiles(
-                    q05=float(pseudo_return[i] - 1.645 * half_spread),
-                    q25=float(pseudo_return[i] - 0.674 * half_spread),
+                    q05=float(pseudo_return[i] - 1.645 * half_spread * sc[i]),
+                    q25=float(pseudo_return[i] - 0.674 * half_spread * sc[i]),
                     q50=float(pseudo_return[i]),
-                    q75=float(pseudo_return[i] + 0.674 * half_spread),
-                    q95=float(pseudo_return[i] + 1.645 * half_spread),
+                    q75=float(pseudo_return[i] + 0.674 * half_spread * sc[i]),
+                    q95=float(pseudo_return[i] + 1.645 * half_spread * sc[i]),
                 ),
                 rank=float(norm[i]),
                 model_id=self.id,

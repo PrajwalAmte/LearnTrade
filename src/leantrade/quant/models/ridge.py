@@ -14,6 +14,7 @@ import numpy as np
 import polars as pl
 
 from leantrade.core.types import Forecast, ForecastQuantiles, InstrumentId
+from leantrade.quant.models._vol_scale import vol_scales
 
 
 class RidgeReturnModel:
@@ -83,9 +84,10 @@ class RidgeReturnModel:
             for j in range(X_np.shape[1]):
                 X_np[np.isnan(X_np[:, j]), j] = self._medians[j]
         X_np = np.nan_to_num(X_np, nan=0.0, posinf=0.0, neginf=0.0)
+        sc = vol_scales(X_np, self._feature_names, getattr(self, "_medians", None))
         X_scaled = self._scaler.transform(X_np)
         preds = self._model.predict(X_scaled)
-        s = self._residual_std
+        s0 = self._residual_std
 
         return [
             Forecast(
@@ -93,11 +95,12 @@ class RidgeReturnModel:
                 as_of=as_of,
                 horizon=self.horizon,
                 expected_return=float(p),
-                p_positive=float(np.clip(0.5 + p / (2 * s + 1e-9) * 0.3, 0.01, 0.99)),
-                volatility=float(s * np.sqrt(252 / 20)),
+                p_positive=float(np.clip(0.5 + p / (2 * s0 + 1e-9) * 0.3, 0.01, 0.99)),
+                volatility=float(s0 * sc[i] * np.sqrt(252 / 20)),
                 quantiles=ForecastQuantiles(
-                    q05=float(p - 1.645 * s), q25=float(p - 0.674 * s),
-                    q50=float(p), q75=float(p + 0.674 * s), q95=float(p + 1.645 * s),
+                    q05=float(p - 1.645 * s0 * sc[i]), q25=float(p - 0.674 * s0 * sc[i]),
+                    q50=float(p),
+                    q75=float(p + 0.674 * s0 * sc[i]), q95=float(p + 1.645 * s0 * sc[i]),
                 ),
                 model_id=self.id,
                 data_snapshot_id="",

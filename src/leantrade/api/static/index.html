@@ -130,6 +130,15 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding:12px 0 28px}
   </div>
 
   <div class="card">
+    <h2>Check any single stock</h2>
+    <p class="muted small">Not in your list? Type its short symbol and LeanTrade will fetch its prices and show where it would rank against your list.</p>
+    <div class="row" style="align-items:end">
+      <div><label for="oneSym">Stock symbol</label><input id="oneSym" placeholder="Example: BAJAJFINSV" autocomplete="off"></div>
+      <div style="flex:0 0 auto"><button class="primary" id="btnOne">Check this stock</button></div>
+    </div>
+  </div>
+
+  <div class="card">
     <h2>Stocks, ranked</h2>
     <p class="muted small">Ranked from strongest to weakest outlook <i>compared with the other stocks in your list</i>. Tap a stock for details.</p>
     <div id="roughNote" class="notice hide">These are rough guesses based only on recent price momentum — the model isn't trained for this view yet. Tap “Update data” to train it.</div>
@@ -153,6 +162,7 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding:12px 0 28px}
       <div class="stat"><div class="small muted">Chance it ends higher</div><div class="big" id="dUp"></div><div class="small muted">Not a promise — a probability.</div></div>
       <div class="stat"><div class="small muted">Typical range</div><div class="big" id="dRange" style="font-size:20px"></div><div class="small muted">Most outcomes land in here.</div></div>
     </div>
+    <p id="dOutside" class="small hide" style="margin:0 0 12px"></p>
     <div id="dRough" class="notice hide">Rough guess only (no trained model yet).</div>
     <div id="chart"></div>
     <p class="small muted" style="margin:4px 0 0">Price over the last ~6 months.</p>
@@ -253,7 +263,9 @@ function spark(points) {
 async function openStock(iid) {
   view('detail');
   $('dName').textContent = iid.split(':')[1];
-  $('dSub').textContent = 'Loading…';
+  $('dSub').textContent = 'Loading… (checking a new stock can take a few seconds)';
+  ['dExp','dUp','dRange','dExpNote'].forEach(i => $(i).textContent = '');
+  $('chart').innerHTML = ''; show('dOutside', false); show('dRough', false);
   try {
     const d = await api(`/stock/${encodeURIComponent(iid)}?horizon=${$('horizonSel').value}`);
     $('dName').textContent = d.symbol;
@@ -264,6 +276,8 @@ async function openStock(iid) {
     $('dUp').textContent = d.rough ? '—' : (d.p_up*100).toFixed(0)+'%';
     $('dRange').textContent = `${pct(d.low,0)} to ${pct(d.high,0)}`;
     show('dRough', d.rough);
+    show('dOutside', !!d.outside);
+    if (d.outside) $('dOutside').textContent = `Not in your list. Compared with your ${d.outside.of - 1} stocks, it would rank ${d.outside.would_rank} of ${d.outside.of}.`;
     $('chart').innerHTML = spark(d.closes);
     const ul = $('dNews'); ul.innerHTML='';
     for (const n of d.news) { const li=document.createElement('li'); li.textContent=n; ul.appendChild(li); }
@@ -306,6 +320,12 @@ $('btnReal').onclick = async () => {
 $('btnRefresh').onclick = async () => { try { const j = await post('/refresh'); trackJob(j.id); } catch(e) { showErr('rankErr', e.message); } };
 $('btnJobOk').onclick = boot;
 $('btnBack').onclick = () => view('main');
+$('btnOne').onclick = () => {
+  const sym = $('oneSym').value.trim().toUpperCase();
+  if (!/^[A-Z0-9][A-Z0-9.&\-]{0,19}$/.test(sym)) { $('oneSym').focus(); return; }
+  openStock($('marketSel').value + ':' + sym);
+};
+$('oneSym').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnOne').click(); });
 $('marketSel').onchange = loadRank; $('horizonSel').onchange = loadRank;
 boot();
 </script>

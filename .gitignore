@@ -45,7 +45,3 @@ htmlcov/
 # ── DuckDB sidecar files (WAL/SHM created during writes) ────────────────────
 *.duckdb-wal
 *.duckdb-shm
-
-# ── UI development (created if Node is installed for UI work) ────────────────
-ui/node_modules/
-ui/dist/

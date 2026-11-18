@@ -1148,7 +1148,6 @@ leantrade/
 │   ├── setup/                   # wizard logic, hardware checks, doctor, updater, backups
 │   ├── i18n/                    # interface translations and locale formats
 │   └── cli/                     # Typer commands
-├── ui/                          # React + TypeScript (Vite) source for the UI
 ├── research/
 │   ├── ablations/
 │   ├── model_comparison/

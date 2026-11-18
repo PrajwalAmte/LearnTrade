@@ -262,8 +262,17 @@ def stock(instrument_id: str, horizon: str = "swing_20d", model: str = "ridge") 
 
     forecasts, source = _forecasts(iid.mic, horizon, model)
     fc = next((f for f in forecasts if str(f.instrument_id) == str(iid)), None)
+    outside: dict[str, Any] | None = None
     if fc is None:
-        raise HTTPException(404, "No data for that stock yet.")
+        from leantrade.cli.main import _forecast_outside_universe
+        store = _open_store()
+        try:
+            fc, ctx, msg = _forecast_outside_universe(_cfg(), store, iid, horizon, model, forecasts)
+        finally:
+            store.close()
+        if fc is None:
+            raise HTTPException(404, msg)
+        outside, source = ctx, "trained model, single-stock check"
 
     now = datetime.now(tz=timezone.utc)
     store = _open_store()
@@ -284,5 +293,5 @@ def stock(instrument_id: str, horizon: str = "swing_20d", model: str = "ridge") 
         "expected_return": float(fc.expected_return), "p_up": float(fc.p_positive),
         "risk": float(fc.volatility),
         "low": float(fc.quantiles.q05), "high": float(fc.quantiles.q95),
-        "closes": closes, "news": events,
+        "closes": closes, "news": events, "outside": outside,
     }

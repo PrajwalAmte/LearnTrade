@@ -11,6 +11,7 @@ import numpy as np
 import polars as pl
 
 from leantrade.core.types import Forecast, ForecastQuantiles, InstrumentId
+from leantrade.quant.models._vol_scale import vol_scales
 
 
 class LGBMReturnModel:
@@ -82,19 +83,21 @@ class LGBMReturnModel:
         if hasattr(self, "_medians") and self._medians is not None:
             for j in range(X_np.shape[1]):
                 X_np[np.isnan(X_np[:, j]), j] = self._medians[j]
+        sc = vol_scales(X_np, self._feature_names, getattr(self, "_medians", None))
         preds = self._model.predict(X_np)
-        s = self._pred_std
+        s0 = self._pred_std
         return [
             Forecast(
                 instrument_id=instruments[i],
                 as_of=as_of,
                 horizon=self.horizon,
                 expected_return=float(p),
-                p_positive=float(np.clip(0.5 + p / (2 * s + 1e-9) * 0.3, 0.01, 0.99)),
-                volatility=float(s * np.sqrt(252 / 20)),
+                p_positive=float(np.clip(0.5 + p / (2 * s0 + 1e-9) * 0.3, 0.01, 0.99)),
+                volatility=float(s0 * sc[i] * np.sqrt(252 / 20)),
                 quantiles=ForecastQuantiles(
-                    q05=float(p - 1.645 * s), q25=float(p - 0.674 * s),
-                    q50=float(p), q75=float(p + 0.674 * s), q95=float(p + 1.645 * s),
+                    q05=float(p - 1.645 * s0 * sc[i]), q25=float(p - 0.674 * s0 * sc[i]),
+                    q50=float(p),
+                    q75=float(p + 0.674 * s0 * sc[i]), q95=float(p + 1.645 * s0 * sc[i]),
                 ),
                 model_id=self.id,
                 data_snapshot_id="",
