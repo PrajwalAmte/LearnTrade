@@ -11,13 +11,13 @@ import numpy as np
 import polars as pl
 import pytest
 
-from leantrade.quant.validation.metrics import (
+from learntrade.quant.validation.metrics import (
     block_bootstrap_ci,
     compute_portfolio_metrics,
     ic_tstat,
     information_coefficient,
 )
-from leantrade.quant.validation.walk_forward import PurgedWalkForwardCV
+from learntrade.quant.validation.walk_forward import PurgedWalkForwardCV
 
 UTC = timezone.utc
 

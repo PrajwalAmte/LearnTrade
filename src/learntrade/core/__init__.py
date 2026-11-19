@@ -1,9 +1,9 @@
-"""leantrade.core — domain types, config, registry, clocks."""
+"""learntrade.core — domain types, config, registry, clocks."""
 
-from leantrade.core.clock import Clock, FixedClock, WallClock, now
-from leantrade.core.config import AppConfig, get_config, get_secrets, load_config
-from leantrade.core.registry import Registry, get_registry
-from leantrade.core.types import (
+from learntrade.core.clock import Clock, FixedClock, WallClock, now
+from learntrade.core.config import AppConfig, get_config, get_secrets, load_config
+from learntrade.core.registry import Registry, get_registry
+from learntrade.core.types import (
     AssetClass,
     DataQualityReport,
     DecisionRecord,

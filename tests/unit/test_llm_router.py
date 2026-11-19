@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from leantrade.llm.router import BudgetExceededError, BudgetTracker, LLMRouter
+from learntrade.llm.router import BudgetExceededError, BudgetTracker, LLMRouter
 
 
 # ── BudgetTracker ─────────────────────────────────────────────────────────────
@@ -47,8 +47,8 @@ def test_budget_record_accumulates():
 
 def _make_router(tmp_path: Path) -> LLMRouter:
     """Create a router with LLM disabled (safe for tests without API keys)."""
-    with patch("leantrade.llm.router.get_config") as mock_cfg, \
-         patch("leantrade.llm.router.get_secrets"):
+    with patch("learntrade.llm.router.get_config") as mock_cfg, \
+         patch("learntrade.llm.router.get_secrets"):
         cfg = MagicMock()
         cfg.llm.enabled = False
         cfg.llm.budget_usd_per_run = 5.0
@@ -93,8 +93,8 @@ def test_extract_text_unknown_format_returns_empty(tmp_path: Path):
 
 def test_router_cache_stores_responses(tmp_path: Path):
     """Router must write to cache; second identical call must be a hit."""
-    with patch("leantrade.llm.router.get_config") as mock_cfg, \
-         patch("leantrade.llm.router.get_secrets"):
+    with patch("learntrade.llm.router.get_config") as mock_cfg, \
+         patch("learntrade.llm.router.get_secrets"):
         cfg = MagicMock()
         cfg.llm.enabled = True
         cfg.llm.budget_usd_per_run = 5.0

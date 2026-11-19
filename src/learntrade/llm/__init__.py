@@ -1,8 +1,8 @@
-"""leantrade.llm"""
+"""learntrade.llm"""
 
-from leantrade.llm.cache import LLMCache
-from leantrade.llm.guard import is_contaminated, mask_document, register_cutoff
-from leantrade.llm.router import BudgetExceededError, BudgetTracker, LLMRouter
+from learntrade.llm.cache import LLMCache
+from learntrade.llm.guard import is_contaminated, mask_document, register_cutoff
+from learntrade.llm.router import BudgetExceededError, BudgetTracker, LLMRouter
 
 __all__ = [
     "BudgetExceededError",

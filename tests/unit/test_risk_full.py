@@ -8,8 +8,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from leantrade.core.types import Holding, InstrumentId, Order
-from leantrade.risk.engine import KillSwitchError, RiskEngine, RiskEngineConfig
+from learntrade.core.types import Holding, InstrumentId, Order
+from learntrade.risk.engine import KillSwitchError, RiskEngine, RiskEngineConfig
 
 UTC = timezone.utc
 

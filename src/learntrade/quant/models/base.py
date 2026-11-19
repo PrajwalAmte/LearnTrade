@@ -2,7 +2,7 @@
 Forecast model protocol and base class.
 
 All quant models implement ``ForecastModel``.
-Registered via the ``leantrade.models`` entry-point group.
+Registered via the ``learntrade.models`` entry-point group.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from typing import Any, Protocol, runtime_checkable
 
 import polars as pl
 
-from leantrade.core.types import Forecast, InstrumentId
+from learntrade.core.types import Forecast, InstrumentId
 
 
 @runtime_checkable

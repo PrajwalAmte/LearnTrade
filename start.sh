@@ -1,5 +1,5 @@
 #!/bin/bash
-# Linux launcher — also called by Start LeanTrade.command on macOS
+# Linux launcher — also called by Start LearnTrade.command on macOS
 
 set -e
 
@@ -32,7 +32,7 @@ fi
 log "Checking dependencies..."
 uv sync --quiet
 
-PORT="${LEANTRADE_PORT:-8787}"
+PORT="${LEARNTRADE_PORT:-8787}"
 URL="http://localhost:${PORT}"
 
 # Open the browser only once the server actually answers, instead of guessing
@@ -52,4 +52,4 @@ URL="http://localhost:${PORT}"
 ) &
 
 log "Starting server at ${URL}"
-exec uv run leantrade serve --port "${PORT}" 2>&1 | tee -a "$LOG_FILE"
+exec uv run learntrade serve --port "${PORT}" 2>&1 | tee -a "$LOG_FILE"

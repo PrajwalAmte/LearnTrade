@@ -1,6 +1,6 @@
 # ── Generated / local ────────────────────────────────────────────────────────
 .env
-config/leantrade.toml
+config/learntrade.toml
 data/
 logs/
 .venv/

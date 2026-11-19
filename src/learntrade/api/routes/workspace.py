@@ -14,7 +14,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from leantrade.api import jobs
+from learntrade.api import jobs
 
 router = APIRouter(tags=["workspace"])
 
@@ -27,18 +27,18 @@ _SYMBOL_RE = re.compile(r"^[A-Z0-9][A-Z0-9.&\-]{0,19}$")
 
 
 def _cfg() -> Any:
-    from leantrade.core.config import get_config
+    from learntrade.core.config import get_config
     return get_config()
 
 
 def _open_store() -> Any:
-    from leantrade.data.store.pit import PITStore
+    from learntrade.data.store.pit import PITStore
     try:
         return PITStore(_cfg().workspace.data_dir)
     except Exception as exc:  # DuckDB: another process holds the file
         raise HTTPException(
             status_code=503,
-            detail="LeanTrade is busy updating data. Try again in a minute.",
+            detail="LearnTrade is busy updating data. Try again in a minute.",
         ) from exc
 
 
@@ -83,10 +83,10 @@ def state() -> dict[str, Any]:
             horizon = "_".join(rest.split("_")[:2])
             out["models"].append({"market": mic, "horizon": horizon, "file": p.name})
 
-    from leantrade.cli.main import _corpus_path
+    from learntrade.cli.main import _corpus_path
     cp = _corpus_path(cfg)
     if cp.exists():
-        from leantrade.data.corpus.store import CorpusStore
+        from learntrade.data.corpus.store import CorpusStore
         c = CorpusStore(cp)
         out["news_articles"] = c.document_count()
         c.close()
@@ -95,7 +95,7 @@ def state() -> dict[str, Any]:
 
 @router.get("/markets")
 def markets() -> dict[str, Any]:
-    from leantrade.markets.loader import list_packs, get_pack
+    from learntrade.markets.loader import list_packs, get_pack
 
     rows = []
     for mic in list_packs():
@@ -111,6 +111,7 @@ class StartRequest(BaseModel):
     mode: str                    # "demo" | "real"
     mic: str | None = None
     symbols: str | None = None   # free text: comma / space / newline separated
+    index: str | None = None     # e.g. "SP500": use a built-in index with its join dates
 
 
 def _parse_symbols(text: str) -> list[str]:
@@ -140,7 +141,23 @@ def start(req: StartRequest) -> dict[str, Any]:
     if req.mode != "real":
         raise HTTPException(400, "mode must be 'demo' or 'real'")
 
-    from leantrade.markets.loader import list_packs
+    if req.index:
+        from learntrade.data.index_history import SUPPORTED
+        key = req.index.upper()
+        if key not in SUPPORTED:
+            raise HTTPException(400, f"Built-in indexes: {', '.join(SUPPORTED)}.")
+        mic = SUPPORTED[key][0]
+        steps = [
+            jobs.Step(f"Loading the {SUPPORTED[key][1]} members and when each joined",
+                      ["universe", "fetch-index", key, "--since", since]),
+            jobs.Step("Downloading 3 years of prices (a few minutes for ~500 stocks)", [
+                "data", "pull", "--market", mic, "--since", since, "--capabilities", "bars_daily"]),
+            jobs.Step("Teaching the model on that history", [
+                "train", "--market", mic, "--since", since]),
+        ]
+        return jobs.start(f"Setting up the {SUPPORTED[key][1]}", steps).public()
+
+    from learntrade.markets.loader import list_packs
     mic = (req.mic or "").upper()
     if mic not in list_packs():
         raise HTTPException(400, f"Unknown market {mic!r}.")
@@ -211,7 +228,7 @@ def _label(rank_pct: float) -> str:
 
 
 def _forecasts(market: str, horizon: str, model: str) -> tuple[list[Any], str]:
-    from leantrade.cli.main import _generate_current_forecasts
+    from learntrade.cli.main import _generate_current_forecasts
     store = _open_store()
     try:
         return _generate_current_forecasts(_cfg(), store, market, horizon, model)
@@ -219,10 +236,40 @@ def _forecasts(market: str, horizon: str, model: str) -> tuple[list[Any], str]:
         store.close()
 
 
+def _reliability(market: str, horizon: str, model: str, rough: bool) -> dict[str, Any]:
+    """Plain-language reliability of the model behind a forecast (from its training report)."""
+    import json
+
+    from learntrade.cli.main import _model_artifact_paths
+    from learntrade.quant.reliability import assess_reliability
+
+    if rough:
+        return {"level": "none", "headline": "No trained model yet: these are rough guesses from recent price momentum only.",
+                "reasons": [], "facts": {}}
+    model_path, _ = _model_artifact_paths(_cfg(), market, horizon, model)
+    report_path = model_path.with_name(model_path.stem + "_report.json")
+    if not report_path.exists():
+        return {"level": "unknown",
+                "headline": "This model has no test report yet, so how reliable it is can't be shown.",
+                "reasons": ["Tap Update data to re-train it and measure it."], "facts": {}}
+    report = json.loads(report_path.read_text())
+    last_bar = None
+    store = _open_store()
+    try:
+        df = store._fetch_pl(
+            "SELECT MAX(event_time) AS m FROM observations WHERE kind='bar' AND instrument_id LIKE ?",
+            [f"{market}:%"])
+        if df.height and df["m"][0] is not None:
+            last_bar = df["m"][0].date().isoformat()
+    finally:
+        store.close()
+    return assess_reliability(report, last_bar=last_bar)
+
+
 @router.get("/rank")
 def rank(market: str, horizon: str = "swing_20d", model: str = "ridge") -> dict[str, Any]:
     if jobs.is_busy():
-        raise HTTPException(503, "LeanTrade is busy updating data. Try again in a minute.")
+        raise HTTPException(503, "LearnTrade is busy updating data. Try again in a minute.")
     forecasts, source = _forecasts(market, horizon, model)
     if source in ("no_universe", "no_features") or not forecasts:
         return {"ready": False, "reason": source}
@@ -245,16 +292,17 @@ def rank(market: str, horizon: str = "swing_20d", model: str = "ridge") -> dict[
         "ready": True, "market": market, "horizon": horizon,
         "horizon_label": HORIZON_LABELS.get(horizon, horizon),
         "source": source, "rough": rough, "count": n, "rows": rows,
+        "reliability": _reliability(market, horizon, model, rough),
     }
 
 
 @router.get("/stock/{instrument_id}")
 def stock(instrument_id: str, horizon: str = "swing_20d", model: str = "ridge") -> dict[str, Any]:
-    from leantrade.cli.main import _news_context
-    from leantrade.core.types import InstrumentId
+    from learntrade.cli.main import _news_context
+    from learntrade.core.types import InstrumentId
 
     if jobs.is_busy():
-        raise HTTPException(503, "LeanTrade is busy updating data. Try again in a minute.")
+        raise HTTPException(503, "LearnTrade is busy updating data. Try again in a minute.")
     try:
         iid = InstrumentId(instrument_id)
     except Exception:
@@ -264,7 +312,7 @@ def stock(instrument_id: str, horizon: str = "swing_20d", model: str = "ridge") 
     fc = next((f for f in forecasts if str(f.instrument_id) == str(iid)), None)
     outside: dict[str, Any] | None = None
     if fc is None:
-        from leantrade.cli.main import _forecast_outside_universe
+        from learntrade.cli.main import _forecast_outside_universe
         store = _open_store()
         try:
             fc, ctx, msg = _forecast_outside_universe(_cfg(), store, iid, horizon, model, forecasts)
@@ -294,4 +342,5 @@ def stock(instrument_id: str, horizon: str = "swing_20d", model: str = "ridge") 
         "risk": float(fc.volatility),
         "low": float(fc.quantiles.q05), "high": float(fc.quantiles.q95),
         "closes": closes, "news": events, "outside": outside,
+        "reliability": _reliability(iid.mic, horizon, model, source.startswith("raw momentum")),
     }

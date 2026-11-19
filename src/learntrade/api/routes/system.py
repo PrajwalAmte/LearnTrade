@@ -14,7 +14,7 @@ async def health() -> dict:
 
 @router.get("/config")
 async def get_config() -> dict:
-    from leantrade.core.config import get_config as _cfg
+    from learntrade.core.config import get_config as _cfg
     cfg = _cfg()
     return {
         "base_currency": cfg.workspace.base_currency,
@@ -27,7 +27,7 @@ async def get_config() -> dict:
 
 @router.get("/doctor")
 async def doctor() -> dict:
-    from leantrade.setup.doctor import run_doctor
+    from learntrade.setup.doctor import run_doctor
     issues = run_doctor()
     return {
         "passed": not any(i.severity == "error" for i in issues),

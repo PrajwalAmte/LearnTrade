@@ -92,10 +92,30 @@ def ic_tstat(ic_series: np.ndarray) -> float:
     return float(np.mean(ic_series) / (std / np.sqrt(n)))
 
 
+def ic_tstat_overlap(ic_series: np.ndarray, horizon_days: int) -> float:
+    """
+    t-statistic that accounts for overlapping forecast windows.
+
+    A 20-day-ahead forecast made on consecutive days shares 19/20 of its outcome
+    window with the previous day's, so daily ICs are strongly autocorrelated and
+    the naive t-stat (``ic_tstat``) counts ~20x too many independent observations.
+    Dividing the sample size by the horizon is the standard first-order fix.
+    """
+    n = len(ic_series)
+    n_eff = n / max(horizon_days, 1)
+    if n < 2 or n_eff < 2:
+        return float("nan")
+    std = float(np.std(ic_series, ddof=1))
+    if std == 0:
+        return float("nan")
+    return float(np.mean(ic_series) / (std / np.sqrt(n_eff)))
+
+
 def block_bootstrap_ci(
     metric_values: np.ndarray,
     ci: float = 0.95,
     n_bootstrap: int = 1000,
+    min_block: int = 1,
 ) -> tuple[float, float]:
     """
     Block-bootstrap confidence interval (overlapping blocks of size ~sqrt(n)).
@@ -105,7 +125,7 @@ def block_bootstrap_ci(
     if n < 4:
         m = float(np.mean(metric_values))
         return m, m
-    block_size = max(1, int(np.sqrt(n)))
+    block_size = min(n, max(min_block, int(np.sqrt(n))))
     rng = np.random.default_rng(42)
     boot_means: list[float] = []
     for _ in range(n_bootstrap):

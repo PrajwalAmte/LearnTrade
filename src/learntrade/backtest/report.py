@@ -12,12 +12,12 @@ from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
-from leantrade.backtest.engine import BacktestResult
-from leantrade.quant.calibration.metrics import CalibrationReport
-from leantrade.quant.validation.metrics import block_bootstrap_ci, compute_portfolio_metrics, ic_tstat
+from learntrade.backtest.engine import BacktestResult
+from learntrade.quant.calibration.metrics import CalibrationReport
+from learntrade.quant.validation.metrics import block_bootstrap_ci, compute_portfolio_metrics, ic_tstat
 
 if TYPE_CHECKING:
-    from leantrade.backtest.reconciliation import ReconciliationReport
+    from learntrade.backtest.reconciliation import ReconciliationReport
 
 
 @dataclass
@@ -94,7 +94,7 @@ def generate_reconciliation_report(
     output_dir: Path,
 ) -> "ReconciliationReport":
     """Generate a reconciliation report comparing the two engines."""
-    from leantrade.backtest.reconciliation import reconcile_results
+    from learntrade.backtest.reconciliation import reconcile_results
     report = reconcile_results(event_driven, vectorised)
     output_dir.mkdir(parents=True, exist_ok=True)
     run_id = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")

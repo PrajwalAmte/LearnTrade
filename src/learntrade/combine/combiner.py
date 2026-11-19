@@ -18,7 +18,7 @@ from typing import Literal
 
 import numpy as np
 
-from leantrade.core.types import Forecast, ForecastQuantiles, InstrumentId
+from learntrade.core.types import Forecast, ForecastQuantiles, InstrumentId
 
 logger = logging.getLogger(__name__)
 

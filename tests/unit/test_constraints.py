@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import pytest
 
-from leantrade.core.types import InstrumentId
-from leantrade.portfolio.constraints import (
+from learntrade.core.types import InstrumentId
+from learntrade.portfolio.constraints import (
     PortfolioConstraints,
     apply_constraints,
     compute_turnover,

@@ -16,12 +16,12 @@ from typing import Any
 
 import polars as pl
 
-from leantrade.core.types import InstrumentId, Order
-from leantrade.data.store.app_state import AppStateDB
-from leantrade.data.store.pit import PITStore
-from leantrade.execution.simulator.engine import EventDrivenSimulator, SimulatorConfig
-from leantrade.execution.simulator.state import Fill
-from leantrade.markets.schema import MarketPack
+from learntrade.core.types import InstrumentId, Order
+from learntrade.data.store.app_state import AppStateDB
+from learntrade.data.store.pit import PITStore
+from learntrade.execution.simulator.engine import EventDrivenSimulator, SimulatorConfig
+from learntrade.execution.simulator.state import Fill
+from learntrade.markets.schema import MarketPack
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +107,7 @@ class PaperTradingSession:
         positions: dict[str, Any],
         fills: list[Fill],
     ) -> None:
-        from leantrade.core.types import Holding
+        from learntrade.core.types import Holding
         holdings = [
             Holding(
                 instrument_id=InstrumentId(iid),

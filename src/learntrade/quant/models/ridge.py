@@ -13,8 +13,8 @@ from typing import Any
 import numpy as np
 import polars as pl
 
-from leantrade.core.types import Forecast, ForecastQuantiles, InstrumentId
-from leantrade.quant.models._vol_scale import vol_scales
+from learntrade.core.types import Forecast, ForecastQuantiles, InstrumentId
+from learntrade.quant.models._vol_scale import vol_scales
 
 
 class RidgeReturnModel:

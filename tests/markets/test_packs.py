@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from leantrade.markets import get_pack, list_packs
-from leantrade.markets.schema import MarketPack
+from learntrade.markets import get_pack, list_packs
+from learntrade.markets.schema import MarketPack
 
 
 SHIPPED_MICS = ["XNYS", "XNAS", "XNSE"]

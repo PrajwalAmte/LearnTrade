@@ -3,7 +3,7 @@ Demo data generator — creates synthetic OHLCV data for 50 instruments.
 
 The demo is watermarked "demo" in source_id and is never confused with real data.
 Instruments follow correlated GBM paths with realistic sector structure.
-Used by: `leantrade serve` on first launch (shows ideas before data pull finishes).
+Used by: `learntrade serve` on first launch (shows ideas before data pull finishes).
 """
 
 from __future__ import annotations
@@ -15,9 +15,9 @@ from pathlib import Path
 
 import numpy as np
 
-from leantrade.core.types import InstrumentId, Observation
-from leantrade.data.store.pit import PITStore
-from leantrade.data.universe import UniverseManager
+from learntrade.core.types import InstrumentId, Observation
+from learntrade.data.store.pit import PITStore
+from learntrade.data.universe import UniverseManager
 
 logger = logging.getLogger(__name__)
 

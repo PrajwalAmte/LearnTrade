@@ -1,1 +1,1 @@
-"""leantrade.cli"""
+"""learntrade.cli"""

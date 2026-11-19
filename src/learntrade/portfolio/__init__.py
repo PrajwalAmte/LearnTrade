@@ -1,6 +1,6 @@
-"""leantrade.portfolio"""
+"""learntrade.portfolio"""
 
-from leantrade.portfolio.allocators import (
+from learntrade.portfolio.allocators import (
     CVaRAllocator,
     EqualWeightAllocator,
     HRPAllocator,
@@ -8,7 +8,7 @@ from leantrade.portfolio.allocators import (
     MeanVarianceAllocator,
     RiskParityAllocator,
 )
-from leantrade.portfolio.constraints import PortfolioConstraints, apply_constraints, compute_turnover
+from learntrade.portfolio.constraints import PortfolioConstraints, apply_constraints, compute_turnover
 
 __all__ = [
     "CVaRAllocator",

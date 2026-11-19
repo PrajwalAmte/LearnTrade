@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from leantrade.attribution.store import AttributionStore
-from leantrade.core.types import (
+from learntrade.attribution.store import AttributionStore
+from learntrade.core.types import (
     DecisionRecord, EvidenceClaim, Forecast, ForecastAttribution,
     ForecastQuantiles, InstrumentId,
 )

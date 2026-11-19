@@ -21,8 +21,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-from leantrade.markets.loader import get_pack, list_packs
-from leantrade.markets.schema import MarketPack
+from learntrade.markets.loader import get_pack, list_packs
+from learntrade.markets.schema import MarketPack
 
 
 @dataclass

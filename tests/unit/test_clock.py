@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from leantrade.core.clock import FixedClock, WallClock, install_clock, now
+from learntrade.core.clock import FixedClock, WallClock, install_clock, now
 
 
 def test_wall_clock_returns_utc():

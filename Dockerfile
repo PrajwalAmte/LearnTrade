@@ -18,4 +18,4 @@ RUN mkdir -p data logs config
 EXPOSE 8787
 
 ENTRYPOINT ["uv", "run"]
-CMD ["leantrade", "serve", "--host", "0.0.0.0", "--port", "8787"]
+CMD ["learntrade", "serve", "--host", "0.0.0.0", "--port", "8787"]

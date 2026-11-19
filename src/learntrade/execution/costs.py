@@ -12,7 +12,7 @@ import math
 from dataclasses import dataclass
 from typing import Literal
 
-from leantrade.markets.schema import CommissionConfig, CostsConfig, MarketPack
+from learntrade.markets.schema import CommissionConfig, CostsConfig, MarketPack
 
 
 @dataclass(frozen=True)

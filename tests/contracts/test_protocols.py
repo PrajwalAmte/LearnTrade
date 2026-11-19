@@ -8,12 +8,12 @@ from __future__ import annotations
 
 import pytest
 
-from leantrade.data.providers.base import DataProvider
-from leantrade.data.providers.yahoo import YahooProvider
-from leantrade.data.providers.fred import FREDProvider
-from leantrade.data.providers.sec_edgar import SECEDGARProvider
-from leantrade.execution.brokers.base import BrokerAdapter
-from leantrade.execution.brokers.csv_import import CsvImportAdapter
+from learntrade.data.providers.base import DataProvider
+from learntrade.data.providers.yahoo import YahooProvider
+from learntrade.data.providers.fred import FREDProvider
+from learntrade.data.providers.sec_edgar import SECEDGARProvider
+from learntrade.execution.brokers.base import BrokerAdapter
+from learntrade.execution.brokers.csv_import import CsvImportAdapter
 
 
 # ── DataProvider contract ─────────────────────────────────────────────────────

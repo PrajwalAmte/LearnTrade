@@ -1,7 +1,7 @@
 """
 Anthropic native client (async, prompt caching, batch API support).
 
-Secrets: set LEANTRADE_ANTHROPIC_API_KEY.
+Secrets: set LEARNTRADE_ANTHROPIC_API_KEY.
 """
 
 from __future__ import annotations

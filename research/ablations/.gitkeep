@@ -1,2 +1,2 @@
 # Ablation study configs live here.
-# Run with: uv run leantrade research ablation --config <file>.toml
+# Run with: uv run learntrade research ablation --config <file>.toml

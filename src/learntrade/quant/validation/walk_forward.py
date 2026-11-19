@@ -33,7 +33,7 @@ class PurgedWalkForwardCV:
     Args:
         n_splits:        number of test folds
         embargo_bars:    bars to drop between train end and test start
-        min_train_bars:  minimum observations required in the training set
+        min_train_bars:  minimum number of distinct trading DATES in the training set
     """
 
     def __init__(

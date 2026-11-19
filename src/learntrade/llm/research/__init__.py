@@ -1,12 +1,12 @@
-"""leantrade.llm.research"""
+"""learntrade.llm.research"""
 
-from leantrade.llm.research.fact_sheet import FactSheet, build_fact_sheet
-from leantrade.llm.research.orchestrator import (
+from learntrade.llm.research.fact_sheet import FactSheet, build_fact_sheet
+from learntrade.llm.research.orchestrator import (
     OrchestratorConfig,
     ResearchOrchestrator,
     ResearchResult,
 )
-from leantrade.llm.research.roles import ROLES, ResearchRole, ResearchRoleId
+from learntrade.llm.research.roles import ROLES, ResearchRole, ResearchRoleId
 
 __all__ = [
     "FactSheet",

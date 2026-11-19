@@ -12,8 +12,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from leantrade.backtest.engine import BacktestResult
-from leantrade.quant.validation.metrics import compute_portfolio_metrics
+from learntrade.backtest.engine import BacktestResult
+from learntrade.quant.validation.metrics import compute_portfolio_metrics
 
 
 @dataclass

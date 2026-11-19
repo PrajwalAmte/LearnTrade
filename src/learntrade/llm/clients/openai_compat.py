@@ -4,7 +4,7 @@ OpenAI-compatible LLM client (async, retries via tenacity).
 Works with any endpoint that follows the OpenAI chat completions API:
 OpenAI, Azure OpenAI, OpenRouter, vLLM, LM Studio, llama.cpp server, etc.
 
-Secrets: set LEANTRADE_OPENAI_API_KEY and optionally LEANTRADE_OPENAI_BASE_URL.
+Secrets: set LEARNTRADE_OPENAI_API_KEY and optionally LEARNTRADE_OPENAI_BASE_URL.
 Never log or store the API key.
 """
 

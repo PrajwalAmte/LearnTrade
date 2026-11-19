@@ -9,8 +9,8 @@ from datetime import datetime, timezone
 import numpy as np
 import pytest
 
-from leantrade.combine.combiner import CombinerConfig, MetaCombiner
-from leantrade.core.types import Forecast, ForecastQuantiles, InstrumentId
+from learntrade.combine.combiner import CombinerConfig, MetaCombiner
+from learntrade.core.types import Forecast, ForecastQuantiles, InstrumentId
 
 UTC = timezone.utc
 

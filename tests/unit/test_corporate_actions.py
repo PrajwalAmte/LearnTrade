@@ -8,9 +8,9 @@ from datetime import datetime, timezone
 
 import pytest
 
-from leantrade.core.types import InstrumentId
-from leantrade.execution.corporate_actions import CorporateAction, CorporateActionProcessor
-from leantrade.execution.simulator.state import PortfolioState, Position
+from learntrade.core.types import InstrumentId
+from learntrade.execution.corporate_actions import CorporateAction, CorporateActionProcessor
+from learntrade.execution.simulator.state import PortfolioState, Position
 
 UTC = timezone.utc
 

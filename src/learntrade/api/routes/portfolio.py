@@ -9,8 +9,8 @@ router = APIRouter(tags=["portfolio"])
 
 @router.get("/holdings")
 async def holdings() -> dict:
-    from leantrade.core.config import get_config
-    from leantrade.data.store.app_state import AppStateDB
+    from learntrade.core.config import get_config
+    from learntrade.data.store.app_state import AppStateDB
     cfg = get_config()
     db_path = cfg.workspace.data_dir / "app_state.duckdb"
     if not db_path.exists():
@@ -31,8 +31,8 @@ async def holdings() -> dict:
 @router.get("/health")
 async def portfolio_health() -> dict:
     """Concentration, sector, and currency flag checks."""
-    from leantrade.core.config import get_config
-    from leantrade.data.store.app_state import AppStateDB
+    from learntrade.core.config import get_config
+    from learntrade.data.store.app_state import AppStateDB
     cfg = get_config()
     db_path = cfg.workspace.data_dir / "app_state.duckdb"
     flags = []
@@ -57,11 +57,11 @@ async def rebalance_proposal(
     allocator: str = "hrp",
     dry_run: bool = True,
 ) -> dict:
-    from leantrade.core.config import get_config
-    from leantrade.data.store.pit import PITStore
-    from leantrade.features.price_volume import PriceVolumeFeatureSet
-    from leantrade.portfolio.allocators import HRPAllocator, EqualWeightAllocator
-    from leantrade.core.types import Forecast, ForecastQuantiles, InstrumentId
+    from learntrade.core.config import get_config
+    from learntrade.data.store.pit import PITStore
+    from learntrade.features.price_volume import PriceVolumeFeatureSet
+    from learntrade.portfolio.allocators import HRPAllocator, EqualWeightAllocator
+    from learntrade.core.types import Forecast, ForecastQuantiles, InstrumentId
     from datetime import datetime, timezone
     import polars as pl
 

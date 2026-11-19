@@ -1,7 +1,7 @@
-"""leantrade.quant.targets"""
+"""learntrade.quant.targets"""
 
-from leantrade.quant.targets.horizon import BUILTIN_HORIZONS, HorizonSpec, get_horizon
-from leantrade.quant.targets.labels import compute_forward_returns, merge_features_labels
+from learntrade.quant.targets.horizon import BUILTIN_HORIZONS, HorizonSpec, get_horizon
+from learntrade.quant.targets.labels import compute_forward_returns, merge_features_labels
 
 __all__ = [
     "BUILTIN_HORIZONS",

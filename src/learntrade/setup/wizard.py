@@ -15,8 +15,8 @@ console = Console()
 def run_terminal_wizard(config_dir: Path) -> None:
     console.rule("[bold]LearnTrade Setup Wizard[/]")
     console.print(
-        "\nThis wizard creates [bold]config/leantrade.toml[/]. "
-        "You can re-run it at any time or use [bold]leantrade serve[/] "
+        "\nThis wizard creates [bold]config/learntrade.toml[/]. "
+        "You can re-run it at any time or use [bold]learntrade serve[/] "
         "to open the browser wizard instead.\n"
     )
 
@@ -46,7 +46,7 @@ def run_terminal_wizard(config_dir: Path) -> None:
 
     # Write config
     config_dir.mkdir(parents=True, exist_ok=True)
-    config_path = config_dir / "leantrade.toml"
+    config_path = config_dir / "learntrade.toml"
 
     llm_section = '[llm]\nenabled = false\n'
     if llm_choice == "cloud":
@@ -91,6 +91,6 @@ mode = "paper"
     config_path.write_text(config_content)
     console.print(f"\n[green]Config written to {config_path}[/]")
     console.print("\nNext steps:")
-    console.print("  [bold]leantrade data pull[/]  — download market data")
-    console.print("  [bold]leantrade train[/]       — train quant models")
-    console.print("  [bold]leantrade serve[/]        — open the web UI")
+    console.print("  [bold]learntrade data pull[/]  — download market data")
+    console.print("  [bold]learntrade train[/]       — train quant models")
+    console.print("  [bold]learntrade serve[/]        — open the web UI")

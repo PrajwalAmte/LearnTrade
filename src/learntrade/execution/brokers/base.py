@@ -1,14 +1,14 @@
 """
 Broker adapter protocol.
 
-Registered via the ``leantrade.brokers`` entry-point group.
+Registered via the ``learntrade.brokers`` entry-point group.
 """
 
 from __future__ import annotations
 
 from typing import Literal, Protocol, runtime_checkable
 
-from leantrade.core.types import Holding, Order, OrderAck
+from learntrade.core.types import Holding, Order, OrderAck
 
 BrokerCapability = Literal[
     "holdings", "positions", "orders_read", "quotes", "place_order", "cancel_order"

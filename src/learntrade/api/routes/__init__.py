@@ -1,1 +1,1 @@
-"""leantrade.api.routes"""
+"""learntrade.api.routes"""

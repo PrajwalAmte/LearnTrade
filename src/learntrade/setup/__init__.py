@@ -1,1 +1,1 @@
-"""leantrade.setup — wizard, doctor, updater, backups."""
+"""learntrade.setup — wizard, doctor, updater, backups."""

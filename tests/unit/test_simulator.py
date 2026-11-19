@@ -12,9 +12,9 @@ import numpy as np
 import polars as pl
 import pytest
 
-from leantrade.core.types import InstrumentId, Order
-from leantrade.execution.simulator.engine import EventDrivenSimulator, SimulatorConfig
-from leantrade.markets.loader import get_pack
+from learntrade.core.types import InstrumentId, Order
+from learntrade.execution.simulator.engine import EventDrivenSimulator, SimulatorConfig
+from learntrade.markets.loader import get_pack
 
 UTC = timezone.utc
 

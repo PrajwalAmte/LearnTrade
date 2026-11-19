@@ -10,8 +10,8 @@ from datetime import datetime, timezone
 import numpy as np
 import pytest
 
-from leantrade.core.types import Forecast, ForecastQuantiles, InstrumentId
-from leantrade.portfolio.allocators import (
+from learntrade.core.types import Forecast, ForecastQuantiles, InstrumentId
+from learntrade.portfolio.allocators import (
     EqualWeightAllocator, HRPAllocator, InverseVolAllocator,
     MeanVarianceAllocator, RiskParityAllocator,
 )

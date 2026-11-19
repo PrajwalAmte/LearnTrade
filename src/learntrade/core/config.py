@@ -1,8 +1,8 @@
 """
-Pydantic-settings config models for leantrade.toml + environment variables.
+Pydantic-settings config models for learntrade.toml + environment variables.
 
-Loading order: defaults → leantrade.toml → .env → environment variables.
-API keys are NEVER written to leantrade.toml; they go to .env or the OS keychain.
+Loading order: defaults → learntrade.toml → .env → environment variables.
+API keys are NEVER written to learntrade.toml; they go to .env or the OS keychain.
 """
 
 from __future__ import annotations
@@ -132,7 +132,7 @@ class ExecutionConfig(BaseModel):
 
 class AppConfig(BaseModel):
     """
-    Parsed representation of config/leantrade.toml.
+    Parsed representation of config/learntrade.toml.
     Loaded once at startup by ``load_config``; treated as immutable thereafter.
     """
 
@@ -155,7 +155,7 @@ class AppConfig(BaseModel):
 
 
 class AppSecrets(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="LEANTRADE_", env_file=".env")
+    model_config = SettingsConfigDict(env_prefix="LEARNTRADE_", env_file=".env")
 
     fmp_api_key: str = ""
     polygon_api_key: str = ""
@@ -168,7 +168,7 @@ class AppSecrets(BaseSettings):
     anthropic_api_key: str = ""
     sec_user_agent: str = ""
     data_dir: str = "./data"
-    config_file: str = "./config/leantrade.toml"
+    config_file: str = "./config/learntrade.toml"
     port: int = 8787
     log_level: str = "INFO"
 
@@ -178,10 +178,35 @@ class AppSecrets(BaseSettings):
 # ---------------------------------------------------------------------------
 
 
+def _migrate_legacy_names() -> None:
+    """
+    Accept settings written when the project was called "leantrade":
+    LEANTRADE_* environment variables and LEANTRADE_* lines in .env are mapped to LEARNTRADE_*
+    (an explicitly set LEARNTRADE_* value always wins).
+    """
+    import os
+
+    for key, value in list(os.environ.items()):
+        if key.startswith("LEANTRADE_"):
+            os.environ.setdefault("LEARNTRADE_" + key[len("LEANTRADE_"):], value)
+    env_file = Path(".env")
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if line.startswith("LEANTRADE_") and "=" in line:
+                k, _, v = line.partition("=")
+                os.environ.setdefault("LEARNTRADE_" + k[len("LEANTRADE_"):], v.strip().strip("\"'"))
+
+
 def load_config(config_path: Path | None = None) -> AppConfig:
-    """Load and validate leantrade.toml; fall back to defaults if absent."""
+    """Load and validate learntrade.toml; fall back to defaults if absent."""
+    _migrate_legacy_names()
     secrets = AppSecrets()
     path = config_path or Path(secrets.config_file)
+    if not path.exists():
+        legacy = path.with_name("leantrade.toml")   # pre-rename config file name
+        if legacy.exists():
+            path = legacy
 
     if not path.exists():
         return AppConfig()

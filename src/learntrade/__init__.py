@@ -1,7 +1,7 @@
 """
 LearnTrade — local-first, market-agnostic trading intelligence engine.
 
-    from leantrade import Workspace
+    from learntrade import Workspace
 
     ws = Workspace()
     forecasts = ws.rank(market="XNYS", horizon="swing_20d")

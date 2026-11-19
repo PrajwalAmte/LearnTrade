@@ -12,9 +12,9 @@ from pathlib import Path
 
 import pytest
 
-from leantrade.core.types import InstrumentId, Observation
-from leantrade.data.quality.checks import run_all_checks
-from leantrade.data.store.pit import PITStore
+from learntrade.core.types import InstrumentId, Observation
+from learntrade.data.quality.checks import run_all_checks
+from learntrade.data.store.pit import PITStore
 
 UTC = timezone.utc
 

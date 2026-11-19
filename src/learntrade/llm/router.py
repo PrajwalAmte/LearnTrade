@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
-from leantrade.core.config import LlmModelsConfig, get_config, get_secrets
+from learntrade.core.config import LlmModelsConfig, get_config, get_secrets
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +88,7 @@ class LLMRouter:
         self._clients: dict[LlmTask, Any] = {}
 
         if self._cache_enabled:
-            from leantrade.llm.cache import LLMCache
+            from learntrade.llm.cache import LLMCache
             path = cache_db_path or Path("data/llm_cache.duckdb")
             self._cache: LLMCache | None = LLMCache(path)
         else:
@@ -116,7 +116,7 @@ class LLMRouter:
         """
         if not self._enabled:
             raise RuntimeError(
-                "LLM is disabled. Set [llm] enabled = true in leantrade.toml "
+                "LLM is disabled. Set [llm] enabled = true in learntrade.toml "
                 "and configure a provider."
             )
 
@@ -210,17 +210,17 @@ class LLMRouter:
         model = cfg.model
 
         if provider in ("openai_compatible", "openai"):
-            from leantrade.llm.clients.openai_compat import OpenAICompatibleClient
+            from learntrade.llm.clients.openai_compat import OpenAICompatibleClient
             return OpenAICompatibleClient(
                 api_key=secrets.openai_api_key,
                 model=model,
                 base_url=getattr(cfg, "base_url", None) or secrets.openai_base_url,
             )
         if provider == "anthropic":
-            from leantrade.llm.clients.anthropic import AnthropicClient
+            from learntrade.llm.clients.anthropic import AnthropicClient
             return AnthropicClient(api_key=secrets.anthropic_api_key, model=model)
         if provider == "ollama":
-            from leantrade.llm.clients.ollama import OllamaClient
+            from learntrade.llm.clients.ollama import OllamaClient
             return OllamaClient(model=model)
         raise ValueError(
             f"Unknown LLM provider {provider!r}. "

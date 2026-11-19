@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from leantrade.llm.cache import LLMCache, _cache_key
+from learntrade.llm.cache import LLMCache, _cache_key
 
 
 def test_cache_key_stable():

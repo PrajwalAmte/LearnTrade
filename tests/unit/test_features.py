@@ -11,8 +11,8 @@ import numpy as np
 import polars as pl
 import pytest
 
-from leantrade.features.cross_sectional import cross_sectional_rank, cross_sectional_zscore
-from leantrade.features.price_volume import compute_price_volume_features, feature_names
+from learntrade.features.cross_sectional import cross_sectional_rank, cross_sectional_zscore
+from learntrade.features.price_volume import compute_price_volume_features, feature_names
 
 UTC = timezone.utc
 

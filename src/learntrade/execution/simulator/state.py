@@ -8,8 +8,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal
 
-from leantrade.core.types import InstrumentId, Order
-from leantrade.execution.costs import TradeCost
+from learntrade.core.types import InstrumentId, Order
+from learntrade.execution.costs import TradeCost
 
 
 @dataclass

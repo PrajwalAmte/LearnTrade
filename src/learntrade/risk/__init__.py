@@ -1,5 +1,5 @@
-"""leantrade.risk"""
+"""learntrade.risk"""
 
-from leantrade.risk.engine import KillSwitchError, RiskEngine, RiskEngineConfig
+from learntrade.risk.engine import KillSwitchError, RiskEngine, RiskEngineConfig
 
 __all__ = ["KillSwitchError", "RiskEngine", "RiskEngineConfig"]

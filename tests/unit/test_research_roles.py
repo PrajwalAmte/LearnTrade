@@ -8,9 +8,9 @@ from datetime import datetime, timezone
 
 import pytest
 
-from leantrade.core.types import Forecast, ForecastQuantiles, InstrumentId
-from leantrade.llm.research.fact_sheet import FactSheet, build_fact_sheet
-from leantrade.llm.research.roles import ROLES, ResearchRole
+from learntrade.core.types import Forecast, ForecastQuantiles, InstrumentId
+from learntrade.llm.research.fact_sheet import FactSheet, build_fact_sheet
+from learntrade.llm.research.roles import ROLES, ResearchRole
 
 UTC = timezone.utc
 

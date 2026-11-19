@@ -1,5 +1,5 @@
-"""leantrade.attribution"""
+"""learntrade.attribution"""
 
-from leantrade.attribution.store import AttributionStore
+from learntrade.attribution.store import AttributionStore
 
 __all__ = ["AttributionStore"]

@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "leantrade"
+name = "learntrade"
 version = "0.1.0-dev"
 description = "A local-first, market-agnostic trading intelligence engine"
 readme = "README.md"
@@ -65,23 +65,23 @@ dev = [
 ]
 
 [project.scripts]
-leantrade = "leantrade.cli.main:app"
+learntrade = "learntrade.cli.main:app"
 
-[project.entry-points."leantrade.providers"]
+[project.entry-points."learntrade.providers"]
 # built-in providers registered here; plugins use the same mechanism
-yahoo = "leantrade.data.providers.yahoo:YahooProvider"
+yahoo = "learntrade.data.providers.yahoo:YahooProvider"
 
-[project.entry-points."leantrade.brokers"]
-csv_import = "leantrade.execution.brokers.csv_import:CsvImportAdapter"
+[project.entry-points."learntrade.brokers"]
+csv_import = "learntrade.execution.brokers.csv_import:CsvImportAdapter"
 
-[project.entry-points."leantrade.markets"]
-builtin = "leantrade.markets:_MARKET_PACKS_DIR"
+[project.entry-points."learntrade.markets"]
+builtin = "learntrade.markets:_MARKET_PACKS_DIR"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/leantrade"]
+packages = ["src/learntrade"]
 
 [tool.hatch.build.targets.sdist]
-exclude = ["data/", "logs/", "config/leantrade.toml", ".env", "research/reports/"]
+exclude = ["data/", "logs/", "config/learntrade.toml", ".env", "research/reports/"]
 
 # ---------------------------------------------------------------------------
 # Ruff
@@ -122,5 +122,5 @@ addopts = "--tb=short -q"
 # Coverage
 # ---------------------------------------------------------------------------
 [tool.coverage.run]
-source = ["src/leantrade"]
-omit = ["src/leantrade/api/static/*"]
+source = ["src/learntrade"]
+omit = ["src/learntrade/api/static/*"]

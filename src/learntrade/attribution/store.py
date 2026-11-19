@@ -16,7 +16,7 @@ from typing import Any
 import duckdb
 import polars as pl
 
-from leantrade.core.types import DecisionRecord, InstrumentId
+from learntrade.core.types import DecisionRecord, InstrumentId
 
 
 class AttributionStore:

@@ -22,7 +22,7 @@ _WIZARD_STEPS = [
 
 @router.get("/status")
 async def setup_status() -> dict:
-    from leantrade.core.config import get_config, AppSecrets
+    from learntrade.core.config import get_config, AppSecrets
     from pathlib import Path
     secrets = AppSecrets()
     cfg_exists = Path(secrets.config_file).exists()
@@ -38,35 +38,9 @@ async def list_steps() -> dict:
     return {"steps": _WIZARD_STEPS}
 
 
-@router.post("/step/{step_id}")
-async def submit_step(step_id: int, payload: dict[str, Any]) -> dict:
-    """
-    Accept wizard step submission and persist relevant config.
-    Returns the next step number or {"completed": true} on step 8.
-    """
-    if step_id == 1:
-        # Risk notice accepted — enable paper trading (safe default)
-        return {"accepted": payload.get("accepted", False), "next_step": 2}
-
-    if step_id == 2:
-        # Market selection
-        mics = payload.get("mics", ["XNYS"])
-        return {"mics": mics, "next_step": 3}
-
-    if step_id == 5:
-        # AI assistant choice
-        choice = payload.get("choice", "none")
-        return {"choice": choice, "next_step": 6}
-
-    if step_id == 8:
-        return {"completed": True, "message": "Setup complete. Your first data pull is queued."}
-
-    return {"next_step": min(step_id + 1, 8)}
-
-
 @router.get("/available-markets")
 async def available_markets() -> dict:
-    from leantrade.markets.loader import list_packs
+    from learntrade.markets.loader import list_packs
     return {"markets": list_packs()}
 
 

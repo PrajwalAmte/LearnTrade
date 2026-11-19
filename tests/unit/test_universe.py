@@ -11,9 +11,9 @@ from pathlib import Path
 
 import pytest
 
-from leantrade.core.types import InstrumentId
-from leantrade.data.store.pit import PITStore
-from leantrade.data.universe import UniverseManager
+from learntrade.core.types import InstrumentId
+from learntrade.data.store.pit import PITStore
+from learntrade.data.universe import UniverseManager
 
 UTC = timezone.utc
 

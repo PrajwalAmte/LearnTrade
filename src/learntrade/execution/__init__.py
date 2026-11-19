@@ -1,9 +1,9 @@
-"""leantrade.execution"""
+"""learntrade.execution"""
 
-from leantrade.execution.corporate_actions import CorporateAction, CorporateActionProcessor
-from leantrade.execution.costs import TradeCost, compute_trade_cost
-from leantrade.execution.fx import FXConverter
-from leantrade.execution.microstructure import (
+from learntrade.execution.corporate_actions import CorporateAction, CorporateActionProcessor
+from learntrade.execution.costs import TradeCost, compute_trade_cost
+from learntrade.execution.fx import FXConverter
+from learntrade.execution.microstructure import (
     get_tick_size,
     is_trading_day,
     round_to_lot,

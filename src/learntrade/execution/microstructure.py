@@ -8,7 +8,7 @@ from __future__ import annotations
 import math
 from datetime import date, datetime
 
-from leantrade.markets.schema import MarketPack, TickBand
+from learntrade.markets.schema import MarketPack, TickBand
 
 
 def get_tick_size(price: float, bands: list[TickBand]) -> float:

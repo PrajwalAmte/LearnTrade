@@ -7,7 +7,7 @@ short-selling rules, and a composable cost/tax model.
 
 The loader searches (in order):
 1. ``markets/`` relative to the workspace root
-2. Any directory registered via the ``leantrade.markets`` entry-point group
+2. Any directory registered via the ``learntrade.markets`` entry-point group
 3. The built-in ``markets/`` folder inside the installed package
 
 Callers should use ``get_pack(mic)`` which caches the result.
@@ -22,19 +22,19 @@ from typing import Any
 
 import yaml  # type: ignore[import]
 
-from leantrade.markets.schema import MarketPack
+from learntrade.markets.schema import MarketPack
 
 
 def _find_builtin_market_packs_dir() -> Path:
     """
     Locate the ``markets/`` directory shipped at the repository root.
 
-    ``__file__`` is ``<repo>/src/leantrade/markets/loader.py``, four levels
+    ``__file__`` is ``<repo>/src/learntrade/markets/loader.py``, four levels
     below the repository root, so walk up looking for a ``markets`` sibling.
-    An explicit ``LEANTRADE_MARKETS_DIR`` env var always wins (useful when
+    An explicit ``LEARNTRADE_MARKETS_DIR`` env var always wins (useful when
     the package is installed from a wheel without the markets/ directory).
     """
-    override = os.environ.get("LEANTRADE_MARKETS_DIR")
+    override = os.environ.get("LEARNTRADE_MARKETS_DIR")
     if override:
         return Path(override)
     here = Path(__file__).resolve()
@@ -91,7 +91,7 @@ def get_pack(mic: str) -> MarketPack:
 
     raise FileNotFoundError(
         f"No Market Pack found for {mic_upper!r} and no generic.yaml available. "
-        f"Run `leantrade market new --mic {mic_upper}` to scaffold one."
+        f"Run `learntrade market new --mic {mic_upper}` to scaffold one."
     )
 
 

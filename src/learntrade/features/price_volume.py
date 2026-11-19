@@ -17,9 +17,9 @@ import numpy as np
 import polars as pl
 
 if TYPE_CHECKING:
-    from leantrade.data.store.pit import PITStore
+    from learntrade.data.store.pit import PITStore
 
-FEATURE_SET_VERSION = "price_volume_v1"
+FEATURE_SET_VERSION = "price_volume_v2_cs"
 
 
 def compute_price_volume_features(
@@ -120,6 +120,29 @@ def feature_names(
     return names
 
 
+_MIN_NAMES_FOR_ZSCORE = 5
+
+
+def add_cross_sectional(df: pl.DataFrame, cols: list[str], date_col: str | None) -> pl.DataFrame:
+    """
+    Append ``{col}_cs``: each feature z-scored across stocks on the same date (clipped to +/-5).
+
+    The model then learns "stronger than the other stocks TODAY" instead of raw values that
+    drift with the market regime. With fewer than 5 stocks on a date there is no meaningful
+    cross-section, so the value is 0 (neutral) rather than noise.
+    """
+    exprs = []
+    for c in cols:
+        mean, std, cnt = pl.col(c).mean(), pl.col(c).std(), pl.col(c).count()
+        if date_col:
+            mean, std, cnt = mean.over(date_col), std.over(date_col), cnt.over(date_col)
+        z = ((pl.col(c) - mean) / (std + 1e-8)).clip(-5.0, 5.0)
+        exprs.append(
+            pl.when(cnt >= _MIN_NAMES_FOR_ZSCORE).then(z).otherwise(0.0).fill_nan(0.0).alias(f"{c}_cs")
+        )
+    return df.with_columns(exprs)
+
+
 @dataclass
 class PriceVolumeFeatureSet:
     """
@@ -133,10 +156,25 @@ class PriceVolumeFeatureSet:
     return_windows: list[int] = field(default_factory=lambda: [1, 5, 20, 60])
     mom_windows: list[int] = field(default_factory=lambda: [5, 20])
     vol_window: int = 20
+    cross_sectional: bool = True
+
+    @property
+    def raw_feature_names(self) -> list[str]:
+        """The plain indicators (ret_20d, ...), kept in the output for display and fallbacks."""
+        return feature_names(self.return_windows, self.mom_windows, self.vol_window)
 
     @property
     def feature_names(self) -> list[str]:
-        return feature_names(self.return_windows, self.mom_windows, self.vol_window)
+        """What the models are trained on: cross-sectionally normalised indicators, plus the
+        raw volatility level (used to scale each stock's forecast range)."""
+        raw = self.raw_feature_names
+        if not self.cross_sectional:
+            return raw
+        return [f"{c}_cs" for c in raw] + [f"ewma_vol_{self.vol_window}d"]
+
+    def _out_cols(self) -> list[str]:
+        raw = self.raw_feature_names
+        return raw + ([f"{c}_cs" for c in raw] if self.cross_sectional else [])
 
     def compute(
         self,
@@ -154,12 +192,15 @@ class PriceVolumeFeatureSet:
         featured = compute_price_volume_features(
             bars, self.return_windows, self.mom_windows, self.vol_window
         )
-        return (
+        latest = (
             featured.sort(["instrument_id", "event_time"])
             .group_by("instrument_id")
             .last()
-            .select(["instrument_id"] + self.feature_names)
+            .select(["instrument_id"] + self.raw_feature_names)
         )
+        if self.cross_sectional:
+            latest = add_cross_sectional(latest, self.raw_feature_names, None)
+        return latest.select(["instrument_id"] + self._out_cols())
 
     def compute_history(
         self,
@@ -178,15 +219,18 @@ class PriceVolumeFeatureSet:
         featured = compute_price_volume_features(
             bars, self.return_windows, self.mom_windows, self.vol_window
         )
-        required = self.feature_names[:3]  # need at least ret_1d, ret_5d, ret_20d
-        return (
+        required = self.raw_feature_names[:3]  # need at least ret_1d, ret_5d, ret_20d
+        hist = (
             featured
             .filter(
                 (pl.col("event_time") >= since) & (pl.col("event_time") <= until)
             )
-            .select(["instrument_id", "event_time"] + self.feature_names)
+            .select(["instrument_id", "event_time"] + self.raw_feature_names)
             .drop_nulls(subset=[c for c in required if c in featured.columns])
         )
+        if self.cross_sectional:
+            hist = add_cross_sectional(hist, self.raw_feature_names, "event_time")
+        return hist.select(["instrument_id", "event_time"] + self._out_cols())
 
 
 def _cast_ohlcv(bars: pl.DataFrame) -> pl.DataFrame:

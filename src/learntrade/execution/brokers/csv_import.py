@@ -9,8 +9,8 @@ from typing import Literal
 
 import polars as pl
 
-from leantrade.core.types import Holding, Order, OrderAck
-from leantrade.execution.brokers.base import BrokerCapability
+from learntrade.core.types import Holding, Order, OrderAck
+from learntrade.execution.brokers.base import BrokerCapability
 
 
 class CsvImportAdapter:
@@ -68,7 +68,7 @@ class CsvImportAdapter:
 
         result: list[Holding] = []
         for row in df.iter_rows(named=True):
-            from leantrade.core.types import InstrumentId
+            from learntrade.core.types import InstrumentId
             instrument_id = InstrumentId(f"{self._mic}:{row[sym_col]}")
             result.append(
                 Holding(

@@ -20,7 +20,7 @@ from datetime import datetime
 
 import polars as pl
 
-from leantrade.llm.extraction.schemas import ExtractedEvidence
+from learntrade.llm.extraction.schemas import ExtractedEvidence
 
 _GUIDANCE_MAP = {"raised": 1.0, "maintained": 0.0, "lowered": -1.0}
 _SURPRISE_MAP = {"positive": 1.0, "in-line": 0.0, "negative": -1.0}

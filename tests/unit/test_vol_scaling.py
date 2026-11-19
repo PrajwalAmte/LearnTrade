@@ -7,8 +7,8 @@ from datetime import datetime, timezone
 import numpy as np
 import polars as pl
 
-from leantrade.core.types import InstrumentId
-from leantrade.quant.models.ridge import RidgeReturnModel
+from learntrade.core.types import InstrumentId
+from learntrade.quant.models.ridge import RidgeReturnModel
 
 
 def test_riskier_stock_gets_wider_range():

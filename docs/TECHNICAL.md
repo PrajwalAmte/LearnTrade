@@ -1,27 +1,33 @@
-# LeanTrade
+# LearnTrade
+
+> **Read this first.** This document describes the **target design** of LearnTrade, not only what is built today.
+> Several parts below (browser setup wizard, Settings pages, fundamentals data, broker connections, the full
+> multi-agent research flow in daily use) are goals. **[STATUS.md](STATUS.md) lists exactly what is implemented and
+> tested, what is experimental, and what is only planned.** Where they disagree, STATUS.md is right.
+
 
 **A local-first, market-agnostic trading intelligence engine that puts quantitative models first and adds LLM research on top.**
 
-LeanTrade forecasts, ranks and sizes positions for equities on **any exchange in any country**. A statistically trained quant core produces calibrated forecasts. Large language models extract evidence from filings and news and challenge the forecasts. A portfolio engine, not an LLM, decides the final weights.
+LearnTrade forecasts, ranks and sizes positions for equities on **any exchange in any country**. A statistically trained quant core produces calibrated forecasts. Large language models extract evidence from filings and news and challenge the forecasts. A portfolio engine, not an LLM, decides the final weights.
 
 It is built to be **cloned and running in minutes**, on a laptop without a GPU, with cloud or local LLMs as an option. Accuracy is not traded away for that simplicity.
 
-**You don't need to be a programmer to use it.** Download the project, double-click **Start LeanTrade**, and a setup wizard opens in your browser. It asks where you invest, then sets everything else up for you. Developers get a full CLI, Python API and plugin system on the same local install.
+**You don't need to be a programmer to use it.** Download the project, double-click **Start LearnTrade**, and a setup wizard opens in your browser. It asks where you invest, then sets everything else up for you. Developers get a full CLI, Python API and plugin system on the same local install.
 
 > **Status:** pre-alpha / design stage. This README is the architecture specification and project plan. Features are described as designed; see [Roadmap](#roadmap) for what is built.
 
-> **Disclaimer:** LeanTrade is research software. It is not financial advice, and it guarantees no returns. Live order execution is off by default and must be enabled explicitly. You are responsible for every trade you place and for complying with the data licences and regulations of your jurisdiction.
+> **Disclaimer:** LearnTrade is research software. It is not financial advice, and it guarantees no returns. Live order execution is off by default and must be enabled explicitly. You are responsible for every trade you place and for complying with the data licences and regulations of your jurisdiction.
 
 ---
 
 ## Table of contents
 
-- [Why LeanTrade](#why-leantrade)
+- [Why LearnTrade](#why-learntrade)
 - [Design principles](#design-principles)
 - [Features](#features)
 - [Getting started (no coding needed)](#getting-started-no-coding-needed)
 - [The setup wizard](#the-setup-wizard)
-- [Using LeanTrade day to day](#using-leantrade-day-to-day)
+- [Using LearnTrade day to day](#using-learntrade-day-to-day)
 - [Quick start for developers](#quick-start-for-developers)
 - [Updating, backups and uninstalling](#updating-backups-and-uninstalling)
 - [Troubleshooting](#troubleshooting)
@@ -39,8 +45,8 @@ It is built to be **cloned and running in minutes**, on a laptop without a GPU, 
   - [10. Attribution and memory](#10-attribution-and-memory)
   - [11. Interfaces](#11-interfaces)
 - [Configuration](#configuration)
-- [Using LeanTrade in your country](#using-leantrade-in-your-country)
-- [Extending LeanTrade](#extending-leantrade)
+- [Using LearnTrade in your country](#using-learntrade-in-your-country)
+- [Extending LearnTrade](#extending-learntrade)
 - [LLM providers, cost and accuracy controls](#llm-providers-cost-and-accuracy-controls)
 - [Evaluation methodology](#evaluation-methodology)
 - [Project structure](#project-structure)
@@ -53,7 +59,7 @@ It is built to be **cloned and running in minutes**, on a laptop without a GPU, 
 
 ---
 
-## Why LeanTrade
+## Why LearnTrade
 
 Most LLM trading-agent systems let a chain of LLM "analysts", "traders" and "managers" produce the final BUY/SELL label. That design has structural limits:
 
@@ -63,9 +69,9 @@ Most LLM trading-agent systems let a chain of LLM "analysts", "traders" and "man
 - **The model already knows the answer.** An LLM backtested on dates before its training cutoff has memorised what happened next. Point-in-time data controls do not remove that leak.
 - **Cost grows with tickers × dates × agents × debate rounds.** Every rerun pays again.
 
-LeanTrade inverts the design:
+LearnTrade inverts the design:
 
-| Concern | LeanTrade's approach |
+| Concern | LearnTrade's approach |
 |---|---|
 | Forecasting | Trained, calibrated quant ensembles predicting return **distributions** for each horizon |
 | Use of LLMs | (a) Per-document **evidence extraction** turned into model features. (b) Selective **research and challenge** on candidates |
@@ -145,7 +151,7 @@ LeanTrade inverts the design:
 
 You need a computer running Windows 10+, macOS 12+ or a recent Linux, about 2 GB of free disk space, and an internet connection for the first setup. **You do not need to install Python, Node or anything else yourself.**
 
-### Step 1: Get LeanTrade
+### Step 1: Get LearnTrade
 
 Choose **one** option:
 
@@ -153,34 +159,34 @@ Choose **one** option:
 - **Or clone with Git**, if you already use it:
 
   ```bash
-  git clone https://github.com/<your-org>/leantrade.git
+  git clone https://github.com/<your-org>/learntrade.git
   ```
 
 Both give you exactly the same app.
 
 ### Step 2: Start it
 
-Open the `leantrade` folder and double-click the launcher for your system:
+Open the `learntrade` folder and double-click the launcher for your system:
 
 | System | Double-click | If your system blocks it |
 |---|---|---|
-| **Windows** | `Start LeanTrade.bat` | If SmartScreen appears, click **More info → Run anyway** |
-| **macOS** | `Start LeanTrade.command` | Right-click → **Open** → **Open** (only needed the first time) |
+| **Windows** | `Start LearnTrade.bat` | If SmartScreen appears, click **More info → Run anyway** |
+| **macOS** | `Start LearnTrade.command` | Right-click → **Open** → **Open** (only needed the first time) |
 | **Linux** | `start.sh` (or run `./start.sh` in a terminal) | Make it executable: right-click → Properties → Allow executing |
 
 **The first start takes a few minutes.** A window shows progress while the launcher:
 1. Installs [uv](https://docs.astral.sh/uv/), a small, self-contained Python manager, inside your user folder. It needs no admin rights and changes no system settings.
-2. Downloads the correct Python version for LeanTrade, kept separate from any Python you already have.
-3. Installs LeanTrade's locked, tested dependencies.
-4. Starts LeanTrade and **opens it in your web browser** at `http://localhost:8787`.
+2. Downloads the correct Python version for LearnTrade, kept separate from any Python you already have.
+3. Installs LearnTrade's locked, tested dependencies.
+4. Starts LearnTrade and **opens it in your web browser** at `http://localhost:8787`.
 
-Later starts take a few seconds. LeanTrade runs **only on your computer**; the browser is just its window, and nothing is hosted online.
+Later starts take a few seconds. LearnTrade runs **only on your computer**; the browser is just its window, and nothing is hosted online.
 
-To stop LeanTrade, close the launcher window (or click **Quit** in the app's menu).
+To stop LearnTrade, close the launcher window (or click **Quit** in the app's menu).
 
 ### Step 3: Follow the setup wizard
 
-The first time you open it, LeanTrade walks you through setup. See the next section.
+The first time you open it, LearnTrade walks you through setup. See the next section.
 
 ### Prefer Docker?
 
@@ -196,9 +202,9 @@ Then open `http://localhost:8787`. Your data is kept in the `./data` folder.
 
 ## The setup wizard
 
-Every step is plain language and can be changed later in **Settings**. Nothing is ever sent to LeanTrade's developers.
+Every step is plain language and can be changed later in **Settings**. Nothing is ever sent to LearnTrade's developers.
 
-| Step | What you're asked | What LeanTrade does for you |
+| Step | What you're asked | What LearnTrade does for you |
 |---|---|---|
 | **1. Welcome** | Read and accept the risk notice | Turns on paper trading (practice mode with no real money) |
 | **2. Where do you invest?** | Pick your country (or several) | Selects the matching exchanges, currencies, trading hours, holidays, fees and taxes from the Market Packs |
@@ -227,7 +233,7 @@ Presets are plain files in `presets/`, so the community can add and improve them
 
 ### Hardware guide for the free on-computer AI
 
-LeanTrade works well **without** AI. If you add it, the wizard recommends a model based on your machine:
+LearnTrade works well **without** AI. If you add it, the wizard recommends a model based on your machine:
 
 | Your computer | Recommended local AI | Notes |
 |---|---|---|
@@ -240,7 +246,7 @@ Local AI runs through [Ollama](https://ollama.com). The wizard offers to install
 
 ---
 
-## Using LeanTrade day to day
+## Using LearnTrade day to day
 
 ### Simple mode (default)
 
@@ -252,7 +258,7 @@ Local AI runs through [Ollama](https://ollama.com). The wizard offers to install
 | **Watchlist** | Stocks you follow, with alerts when the view on them changes |
 | **Research** | A readable report on any stock: what's happening, the bull case, the bear case, and the evidence with links to the source documents |
 | **Practice trading** | A paper portfolio that follows suggestions so you can see how they perform over time without real money |
-| **Learn** | The glossary and short explanations of how LeanTrade works and its limits |
+| **Learn** | The glossary and short explanations of how LearnTrade works and its limits |
 
 Every number has a **ⓘ What does this mean?** button. Probabilities are always shown with a reminder that they are estimates, not certainties.
 
@@ -268,7 +274,7 @@ Switch in **Settings → Mode**. This adds:
 
 ### Data refresh
 
-LeanTrade refreshes data and forecasts automatically **when it's running**: on start, and on a schedule you choose (default: once a day after your market closes). There's also a **Refresh now** button.
+LearnTrade refreshes data and forecasts automatically **when it's running**: on start, and on a schedule you choose (default: once a day after your market closes). There's also a **Refresh now** button.
 
 ---
 
@@ -284,11 +290,11 @@ The launchers above run the same commands shown here. Use this path if you are c
 ### Install
 
 ```bash
-git clone https://github.com/<your-org>/leantrade.git
+git clone https://github.com/<your-org>/learntrade.git
 ```
 
 ```bash
-cd leantrade && uv sync
+cd learntrade && uv sync
 ```
 
 Optional extras:
@@ -312,53 +318,53 @@ uv sync --all-extras       # everything
 ### Initialise a workspace
 
 ```bash
-uv run leantrade init
+uv run learntrade init
 ```
 
-This is the terminal version of the setup wizard (or run `uv run leantrade serve --open` to use the browser wizard). It asks for:
-- **Markets** you trade (any MIC; packs that ship with LeanTrade are listed, and any other exchange can use the `generic` pack)
+This is the terminal version of the setup wizard (or run `uv run learntrade serve --open` to use the browser wizard). It asks for:
+- **Markets** you trade (any MIC; packs that ship with LearnTrade are listed, and any other exchange can use the `generic` pack)
 - **Base currency** for portfolio reporting
 - **Data providers** and their API keys (written to `.env`, never to the config file)
 - **LLM providers** (or none)
 
-It writes `config/leantrade.toml` and `.env` (API keys go to your OS keychain when available).
+It writes `config/learntrade.toml` and `.env` (API keys go to your OS keychain when available).
 
 ### Typical workflow
 
 ```bash
-uv run leantrade data pull --since 2012-01-01            # prices, fundamentals, macro, news
+uv run learntrade data pull --since 2012-01-01            # prices, fundamentals, macro, news
 ```
 
 ```bash
-uv run leantrade data check                              # leakage, gaps, duplicates, corporate actions
+uv run learntrade data check                              # leakage, gaps, duplicates, corporate actions
 ```
 
 ```bash
-uv run leantrade train --horizon swing                   # walk-forward training + calibration
+uv run learntrade train --horizon swing                   # walk-forward training + calibration
 ```
 
 ```bash
-uv run leantrade backtest --strategy default --from 2018-01-01
+uv run learntrade backtest --strategy default --from 2018-01-01
 ```
 
 ```bash
-uv run leantrade rank --market XNSE --top 20             # today's ranked opportunities
+uv run learntrade rank --market XNSE --top 20             # today's ranked opportunities
 ```
 
 ```bash
-uv run leantrade analyze XNYS:AAPL                       # full research report for one instrument
+uv run learntrade analyze XNYS:AAPL                       # full research report for one instrument
 ```
 
 ```bash
-uv run leantrade portfolio import holdings.csv           # bring in your current holdings
+uv run learntrade portfolio import holdings.csv           # bring in your current holdings
 ```
 
 ```bash
-uv run leantrade rebalance --dry-run                     # proposed trades with costs and attribution
+uv run learntrade rebalance --dry-run                     # proposed trades with costs and attribution
 ```
 
 ```bash
-uv run leantrade serve                                   # local UI at http://localhost:8787
+uv run learntrade serve                                   # local UI at http://localhost:8787
 ```
 
 Running with no LLM configured is fully supported: the quant, portfolio and execution engines work on their own.
@@ -368,8 +374,8 @@ Running with no LLM configured is fully supported: the quant, portfolio and exec
 ## Updating, backups and uninstalling
 
 **Updating**
-- In the app: **Settings → Check for updates → Update**. LeanTrade backs up your settings and data first, updates itself, and restarts.
-- From a terminal: `uv run leantrade update` (runs `git pull` for clones, or downloads the latest release for ZIP installs, then reinstalls dependencies).
+- In the app: **Settings → Check for updates → Update**. LearnTrade backs up your settings and data first, updates itself, and restarts.
+- From a terminal: `uv run learntrade update` (runs `git pull` for clones, or downloads the latest release for ZIP installs, then reinstalls dependencies).
 
 Your data, settings and portfolios live in the `data/` and `config/` folders and are never touched by updates.
 
@@ -377,22 +383,22 @@ Your data, settings and portfolios live in the `data/` and `config/` folders and
 - **Settings → Backup** creates a single `.zip` with your settings, portfolios, watchlists and decision history. **Restore** loads one.
 - API keys are stored in your system's secure keychain and are **not** included in backups unless you choose to include them (encrypted with a password).
 
-**Moving to a new computer:** install LeanTrade there, then restore your backup in the wizard's first step.
+**Moving to a new computer:** install LearnTrade there, then restore your backup in the wizard's first step.
 
-**Uninstalling:** delete the `leantrade` folder. To also remove the Python manager, delete uv's folder (shown in **Settings → About**). LeanTrade installs nothing else on your system, apart from Ollama if you chose to install it; Ollama has its own uninstaller.
+**Uninstalling:** delete the `learntrade` folder. To also remove the Python manager, delete uv's folder (shown in **Settings → About**). LearnTrade installs nothing else on your system, apart from Ollama if you chose to install it; Ollama has its own uninstaller.
 
 ---
 
 ## Troubleshooting
 
-Start with **Settings → Fix problems** (or `uv run leantrade doctor` in a terminal). It checks your installation, internet access, data sources, API keys, disk space and AI setup, explains each problem in plain language, and offers a **Fix** button where it can.
+Start with **Settings → Fix problems** (or `uv run learntrade doctor` in a terminal). It checks your installation, internet access, data sources, API keys, disk space and AI setup, explains each problem in plain language, and offers a **Fix** button where it can.
 
 | Problem | What to do |
 |---|---|
-| The launcher window closes immediately | Open a terminal in the folder and run `./start.sh` (macOS/Linux) or `"Start LeanTrade.bat"` (Windows) to see the message, or check `logs/launcher.log` |
+| The launcher window closes immediately | Open a terminal in the folder and run `./start.sh` (macOS/Linux) or `"Start LearnTrade.bat"` (Windows) to see the message, or check `logs/launcher.log` |
 | The browser doesn't open | Go to `http://localhost:8787` yourself |
-| "Port already in use" | LeanTrade is probably already running. Otherwise, change the port in **Settings → Advanced** or run `uv run leantrade serve --port 8790` |
-| A data source fails | **Fix problems** tests each source; free sources sometimes rate-limit, and LeanTrade retries and falls back to the next source automatically |
+| "Port already in use" | LearnTrade is probably already running. Otherwise, change the port in **Settings → Advanced** or run `uv run learntrade serve --port 8790` |
+| A data source fails | **Fix problems** tests each source; free sources sometimes rate-limit, and LearnTrade retries and falls back to the next source automatically |
 | The AI is slow on my computer | Choose a smaller model in **Settings → AI**, or switch to Cloud, or None |
 | A cloud AI spending limit was reached | The statistical models keep working; AI research resumes when the limit resets or you raise it |
 | I want help from the community | **Settings → Fix problems → Create support bundle** makes a zip of logs with your keys and portfolio removed. Attach it to a GitHub issue |
@@ -451,7 +457,7 @@ Each decision produces a structured, auditable record:
 
 ## Architecture
 
-LeanTrade is a set of engines with typed contracts between them. None of them is "an agent" by default; LLM agents are one engine among several.
+LearnTrade is a set of engines with typed contracts between them. None of them is "an agent" by default; LLM agents are one engine among several.
 
 ```mermaid
 flowchart TD
@@ -584,9 +590,9 @@ Market Pack features:
 | `benchmark` | Benchmark for excess-return targets and alpha reporting |
 | `data_defaults` | Preferred provider order for this market |
 
-**Shipped packs** are community-maintained (see [Using LeanTrade in your country](#using-leantrade-in-your-country)). **Any exchange without a pack** can use `generic`, which takes its calendar from `exchange_calendars` and starts with conservative default costs you should override.
+**Shipped packs** are community-maintained (see [Using LearnTrade in your country](#using-learntrade-in-your-country)). **Any exchange without a pack** can use `generic`, which takes its calendar from `exchange_calendars` and starts with conservative default costs you should override.
 
-Your **broker's** actual commission schedule always overrides the pack's defaults in `config/leantrade.toml` (or **Settings → Markets → My broker fees**).
+Your **broker's** actual commission schedule always overrides the pack's defaults in `config/learntrade.toml` (or **Settings → Markets → My broker fees**).
 
 ### 3. Data engine
 
@@ -637,7 +643,7 @@ Backtests warn when they depend on `none`-level data and refuse to produce a "va
 | Universes / constituents | Provider index membership history | Exchange-published constituent files |
 | Holdings | CSV / XLSX import (any broker) | Broker adapters (plugins) |
 
-> Having API access to data does not by itself give you the right to redistribute it. LeanTrade stores data only locally and never redistributes it. Check each provider's terms.
+> Having API access to data does not by itself give you the right to redistribute it. LearnTrade stores data only locally and never redistributes it. Check each provider's terms.
 
 **Storage**
 
@@ -649,7 +655,7 @@ Backtests warn when they depend on `none`-level data and refuse to produce a "va
 | App state | DuckDB (or SQLite) | Watchlists, portfolios, runs, attribution |
 | Secrets | OS keychain (fallback: `.env`) | API keys, broker tokens, held apart from research data |
 
-**Data quality checks** (`leantrade data check`), run automatically before training:
+**Data quality checks** (`learntrade data check`), run automatically before training:
 - Future leakage (`available_at > as_of` in any training row)
 - Missing bars against the market calendar; duplicate observations
 - Time-zone and session-boundary errors
@@ -850,10 +856,10 @@ Every decision writes an attribution record:
 
 | Interface | Use |
 |---|---|
-| **CLI** (`leantrade …`) | Everything: data, training, backtests, ranking, analysis, rebalancing |
-| **Local web UI** (`leantrade serve`, or the double-click launchers) | Setup wizard, Simple and Advanced modes, dashboard, portfolio, watchlists, research reports, strategy lab, backtests, attribution explorer. React + TypeScript, served by the local Python process; the prebuilt bundle ships in the repository, so no Node is needed |
-| **Launchers** (`Start LeanTrade.bat`, `Start LeanTrade.command`, `start.sh`) | Install uv and Python if needed, sync dependencies, start the server, open the browser. Thin scripts that only call the same CLI commands |
-| **Python API** | `from leantrade import Workspace`, for notebooks and custom research |
+| **CLI** (`learntrade …`) | Everything: data, training, backtests, ranking, analysis, rebalancing |
+| **Local web UI** (`learntrade serve`, or the double-click launchers) | Setup wizard, Simple and Advanced modes, dashboard, portfolio, watchlists, research reports, strategy lab, backtests, attribution explorer. React + TypeScript, served by the local Python process; the prebuilt bundle ships in the repository, so no Node is needed |
+| **Launchers** (`Start LearnTrade.bat`, `Start LearnTrade.command`, `start.sh`) | Install uv and Python if needed, sync dependencies, start the server, open the browser. Thin scripts that only call the same CLI commands |
+| **Python API** | `from learntrade import Workspace`, for notebooks and custom research |
 | **REST API** | Local FastAPI endpoints used by the UI and for integrations |
 | **Desktop app** (later, optional) | Tauri 2 shell around the same UI for a native install experience |
 
@@ -863,7 +869,7 @@ Every decision writes an attribution record:
 
 > **Most people never need to edit this file.** The setup wizard and the **Settings** screen read and write it for you. It is documented here for developers and power users; changes made either way are equivalent.
 
-`config/leantrade.toml`:
+`config/learntrade.toml`:
 
 ```toml
 [workspace]
@@ -940,18 +946,18 @@ mode = "paper"                          # "backtest" | "paper" | "live"
 live_confirm_each_order = true
 ```
 
-`.env` holds secrets only (or let `leantrade init` store them in the OS keychain):
+`.env` holds secrets only (or let `learntrade init` store them in the OS keychain):
 
 ```bash
-LEANTRADE_FMP_API_KEY=...
-LEANTRADE_OPENAI_API_KEY=...
-LEANTRADE_ANTHROPIC_API_KEY=...
-LEANTRADE_SEC_USER_AGENT="Your Name your@email"
+LEARNTRADE_FMP_API_KEY=...
+LEARNTRADE_OPENAI_API_KEY=...
+LEARNTRADE_ANTHROPIC_API_KEY=...
+LEARNTRADE_SEC_USER_AGENT="Your Name your@email"
 ```
 
 ---
 
-## Using LeanTrade in your country
+## Using LearnTrade in your country
 
 **For most people:** pick your country in the setup wizard. If your exchange already has a Market Pack, everything is filled in automatically. If not, the wizard uses the `generic` pack, asks you for your broker's fees in plain terms (e.g. "fee per trade", "tax when selling"), and builds a pack for you.
 
@@ -961,13 +967,13 @@ LEANTRADE_SEC_USER_AGENT="Your Name your@email"
 2. **Check for a shipped pack:**
 
    ```bash
-   uv run leantrade market list
+   uv run learntrade market list
    ```
 
 3. **If there isn't one, scaffold it:**
 
    ```bash
-   uv run leantrade market new --mic XJSE
+   uv run learntrade market new --mic XJSE
    ```
 
    This fills in calendar, time zone and currency from `exchange_calendars` when it knows the exchange, and leaves a cost/tax template to complete.
@@ -976,7 +982,7 @@ LEANTRADE_SEC_USER_AGENT="Your Name your@email"
 6. **Validate it:**
 
    ```bash
-   uv run leantrade market validate XJSE
+   uv run learntrade market validate XJSE
    ```
 
    This checks the calendar against the price history, tick/lot rounding, and runs cost-model sanity tests.
@@ -986,36 +992,36 @@ Nothing else changes: features, models, the LLM layer, portfolio construction an
 
 ---
 
-## Extending LeanTrade
+## Extending LearnTrade
 
 Plugins are standard Python packages registered through entry points:
 
 ```toml
 # in your plugin's pyproject.toml
-[project.entry-points."leantrade.providers"]
-my_exchange_files = "leantrade_myexchange:ExchangeFilesProvider"
+[project.entry-points."learntrade.providers"]
+my_exchange_files = "learntrade_myexchange:ExchangeFilesProvider"
 
-[project.entry-points."leantrade.brokers"]
-my_broker = "leantrade_mybroker:MyBrokerAdapter"
+[project.entry-points."learntrade.brokers"]
+my_broker = "learntrade_mybroker:MyBrokerAdapter"
 
-[project.entry-points."leantrade.markets"]
-my_markets = "leantrade_myexchange:market_packs_dir"
+[project.entry-points."learntrade.markets"]
+my_markets = "learntrade_myexchange:market_packs_dir"
 ```
 
 Extension points:
 
 | Entry point | Implement |
 |---|---|
-| `leantrade.providers` | `DataProvider` |
-| `leantrade.brokers` | `BrokerAdapter` |
-| `leantrade.markets` | Directory of Market Pack YAML files |
-| `leantrade.features` | `FeatureSet` (declarative, point-in-time) |
-| `leantrade.models` | `ForecastModel` (`fit` / `predict_distribution`) |
-| `leantrade.allocators` | `Allocator` |
-| `leantrade.llm_providers` | `LLMClient` |
-| `leantrade.agents` | `ResearchRole` (prompt + schema + tools) |
+| `learntrade.providers` | `DataProvider` |
+| `learntrade.brokers` | `BrokerAdapter` |
+| `learntrade.markets` | Directory of Market Pack YAML files |
+| `learntrade.features` | `FeatureSet` (declarative, point-in-time) |
+| `learntrade.models` | `ForecastModel` (`fit` / `predict_distribution`) |
+| `learntrade.allocators` | `Allocator` |
+| `learntrade.llm_providers` | `LLMClient` |
+| `learntrade.agents` | `ResearchRole` (prompt + schema + tools) |
 
-Every plugin type has a contract test suite (`leantrade plugin test <name>`), so community adapters behave consistently.
+Every plugin type has a contract test suite (`learntrade plugin test <name>`), so community adapters behave consistently.
 
 ---
 
@@ -1027,7 +1033,7 @@ Every plugin type has a contract test suite (`leantrade plugin test <name>`), so
 - **Google** and others through adapters
 - **Local:** Ollama, llama.cpp, vLLM, GPU optional
 
-**Model policy:** each task (`extract`, `research`, `verify`, `escalation`) maps to a model with a fallback chain. Model choices are driven by LeanTrade's own **LLM evaluation suite**:
+**Model policy:** each task (`extract`, `research`, `verify`, `escalation`) maps to a model with a fallback chain. Model choices are driven by LearnTrade's own **LLM evaluation suite**:
 
 1. Financial numerical reasoning
 2. Source-grounded extraction accuracy
@@ -1038,7 +1044,7 @@ Every plugin type has a contract test suite (`leantrade plugin test <name>`), so
 7. Latency and hardware requirements
 
 ```bash
-uv run leantrade llm eval --task extract --models "ollama/qwen2.5:14b-instruct,anthropic/<model>"
+uv run learntrade llm eval --task extract --models "ollama/qwen2.5:14b-instruct,anthropic/<model>"
 ```
 
 **Cost controls that do not reduce accuracy:**
@@ -1089,7 +1095,7 @@ Every strategy, model and component must pass the same protocol before it is ena
 8. \+ memory
 
 ```bash
-uv run leantrade research ablation --config research/ablations/swing_default.toml
+uv run learntrade research ablation --config research/ablations/swing_default.toml
 ```
 
 Reports go to `research/reports/` as HTML and Markdown with every setting recorded.
@@ -1099,21 +1105,21 @@ Reports go to `research/reports/` as HTML and Markdown with every setting record
 ## Project structure
 
 ```
-leantrade/
-├── Start LeanTrade.bat          # Windows double-click launcher
-├── Start LeanTrade.command      # macOS double-click launcher
+learntrade/
+├── Start LearnTrade.bat          # Windows double-click launcher
+├── Start LearnTrade.command      # macOS double-click launcher
 ├── start.sh                     # Linux launcher (also used by the macOS one)
 ├── docker-compose.yml           # optional Docker path
 ├── pyproject.toml
 ├── uv.lock                      # locked dependencies, so every install is identical
 ├── config/                      # your settings (created by the wizard; git-ignored)
-│   └── leantrade.example.toml
+│   └── learntrade.example.toml
 ├── data/                        # your local data (git-ignored)
 ├── logs/                        # launcher and app logs (git-ignored)
 ├── .env.example
 ├── presets/                     # investor profiles and risk levels (TOML)
 ├── markets/                     # Market Packs (YAML), one per MIC + generic.yaml
-├── src/leantrade/
+├── src/learntrade/
 │   ├── core/                    # domain types, config, plugin registry, clocks, IDs
 │   ├── markets/                 # pack loader, calendars, sessions, cost & tax models, FX
 │   ├── data/
@@ -1221,14 +1227,14 @@ uv run pytest
 ```
 
 ```bash
-uv run leantrade market validate --all
+uv run learntrade market validate --all
 ```
 
 ```bash
 uv run ruff check . && uv run mypy src
 ```
 
-Rules for model and strategy contributions: include the evaluation report produced by `leantrade research`, and do not tune on the holdout period.
+Rules for model and strategy contributions: include the evaluation report produced by `learntrade research`, and do not tune on the holdout period.
 
 ---
 
@@ -1240,14 +1246,14 @@ Rules for model and strategy contributions: include the evaluation report produc
 | **Backtest** | Replaying the strategy over past years to see how it would have performed, including fees |
 | **Horizon** | How far ahead a forecast looks (e.g. 4 weeks) |
 | **Beating the market (excess return)** | Doing better than your market's main index over the same period |
-| **Probability / confidence** | LeanTrade's estimate of how likely something is. 58% means it is expected to be right somewhat more often than wrong, not that it is certain |
+| **Probability / confidence** | LearnTrade's estimate of how likely something is. 58% means it is expected to be right somewhat more often than wrong, not that it is certain |
 | **Volatility** | How much a price usually moves up and down; higher means riskier |
 | **Drawdown** | The fall from a portfolio's highest value to its lowest point after that |
 | **Diversification** | Spreading money across many stocks, sectors and currencies so one bad event hurts less |
 | **Sector** | A group of similar businesses, such as banks, technology or energy |
 | **Position size / weight** | How much of your portfolio is in one holding |
 | **Rebalancing** | Buying and selling to bring the portfolio back to its target weights |
-| **Fees and taxes (costs)** | Broker commission, exchange fees and transaction taxes. LeanTrade includes them in every estimate |
+| **Fees and taxes (costs)** | Broker commission, exchange fees and transaction taxes. LearnTrade includes them in every estimate |
 | **Market Pack** | A file describing one stock exchange's rules, hours, holidays and costs |
 | **Point-in-time data** | Data shown exactly as it was known on a past date, so backtests can't cheat with hindsight |
 | **Local AI / Cloud AI** | A language model running on your own computer, or one from an online provider you pay for |

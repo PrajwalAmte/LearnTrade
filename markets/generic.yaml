@@ -1,5 +1,5 @@
 # Generic Market Pack — used as a fallback when no exchange-specific pack exists.
-# Override costs and rules in config/leantrade.toml under [markets.<MIC>.broker_costs].
+# Override costs and rules in config/learntrade.toml under [markets.<MIC>.broker_costs].
 
 mic: GENERIC
 name: Generic Exchange

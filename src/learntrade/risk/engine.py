@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from leantrade.core.types import Holding, InstrumentId, Order
+from learntrade.core.types import Holding, InstrumentId, Order
 
 logger = logging.getLogger(__name__)
 

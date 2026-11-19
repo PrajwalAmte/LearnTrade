@@ -17,14 +17,14 @@ class Registry:
     """Lazy-loading registry backed by setuptools entry points."""
 
     _GROUPS = {
-        "providers": "leantrade.providers",
-        "brokers": "leantrade.brokers",
-        "markets": "leantrade.markets",
-        "features": "leantrade.features",
-        "models": "leantrade.models",
-        "allocators": "leantrade.allocators",
-        "llm_providers": "leantrade.llm_providers",
-        "agents": "leantrade.agents",
+        "providers": "learntrade.providers",
+        "brokers": "learntrade.brokers",
+        "markets": "learntrade.markets",
+        "features": "learntrade.features",
+        "models": "learntrade.models",
+        "allocators": "learntrade.allocators",
+        "llm_providers": "learntrade.llm_providers",
+        "agents": "learntrade.agents",
     }
 
     def __init__(self) -> None:

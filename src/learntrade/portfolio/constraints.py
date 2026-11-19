@@ -19,7 +19,7 @@ from typing import Any
 
 import numpy as np
 
-from leantrade.core.types import Forecast, Holding, InstrumentId
+from learntrade.core.types import Forecast, Holding, InstrumentId
 
 
 @dataclass

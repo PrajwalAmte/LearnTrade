@@ -11,14 +11,14 @@ import numpy as np
 import polars as pl
 import pytest
 
-from leantrade.backtest.engine import (
+from learntrade.backtest.engine import (
     BacktestConfig,
     BacktestResult,
     EventDrivenBacktest,
     VectorisedBacktest,
 )
-from leantrade.backtest.reconciliation import reconcile_results
-from leantrade.markets.loader import get_pack
+from learntrade.backtest.reconciliation import reconcile_results
+from learntrade.markets.loader import get_pack
 
 UTC = timezone.utc
 
@@ -59,48 +59,51 @@ def _make_test_data(n_instruments: int = 5, n_days: int = 60) -> tuple[pl.DataFr
 
 
 def test_reconciliation_passes_within_tolerance():
-    # A full year and a less concentrated top-5-of-10 book, rather than
-    # 60 days / top-3-of-5 — the shorter, more concentrated version makes a
-    # handful of idiosyncratic single-day moves dominate both CAGRs, which
-    # has nothing to do with whether the two engines reconcile.
+    # Realistic cadence: trade every 20 days like a 20-day model would. (Trading DAILY on
+    # this noisy fixture amplifies fill-timing differences between the engines; see
+    # test_costs_agree_between_engines for the daily case.)
     bars, signals = _make_test_data(n_instruments=10, n_days=250)
     pack = get_pack("XNYS")
+    cfg = BacktestConfig(pit_level="none", top_n=5, rebalance_every=20)
 
-    vec_result = VectorisedBacktest().run(
-        signals, bars, pack,
-        BacktestConfig(pit_level="none", top_n=5),
-    )
-    ed_result = EventDrivenBacktest().run(
-        signals, bars, pack,
-        BacktestConfig(pit_level="none", top_n=5),
-        initial_cash=100_000.0,
-    )
-    # The remaining gap is structural, not noise: VectorisedBacktest only
-    # ever charges bare commission (by design — it's the "fast approximate"
-    # engine), while EventDrivenBacktest charges the full Market Pack cost
-    # model (taxes, exchange/regulatory fees, spread, market impact) on top
-    # of next-bar-OPEN fills vs. Vectorised's next-bar-CLOSE fills. Making
-    # the two agree to within a few bps would require Vectorised to share
-    # EventDrivenBacktest's cost function, which it does not yet do — a
-    # real follow-up, not something to fake by loosening this further.
-    # 1500 bps covers that structural gap on noisy synthetic data without
-    # papering over an engine actually disagreeing by an order of magnitude
-    # (the regression this test exists to catch: see
-    # test_reconciliation_fails_on_large_gap, and the -99.99% CAGR bug this
-    # fixture used to produce before its price-generation formula was fixed).
-    report = reconcile_results(ed_result, vec_result, tolerance_bps=1500.0)
+    vec_result = VectorisedBacktest().run(signals, bars, pack, cfg)
+    ed_result = EventDrivenBacktest().run(signals, bars, pack, cfg, initial_cash=100_000.0)
+    # Both engines charge trades with the SAME cost function
+    # (execution.costs.compute_trade_cost), so the remaining gap is fill mechanics only:
+    # EventDriven fills at the next bar's OPEN with lot/tick rounding and a participation
+    # cap; Vectorised uses close-to-close returns. Measured gap here is ~240 bps CAGR
+    # (daily-return correlation ~0.98). 500 bps still catches an engine disagreeing by an
+    # order of magnitude (see test_reconciliation_fails_on_large_gap).
+    report = reconcile_results(ed_result, vec_result, tolerance_bps=500.0)
     assert report.passed, f"Reconciliation failed: {report.message}"
+    n = min(len(vec_result.daily_returns), len(ed_result.daily_returns))
+    corr = np.corrcoef(vec_result.daily_returns[:n], ed_result.daily_returns[:n])[0, 1]
+    assert corr > 0.9, f"daily returns should track each other, correlation={corr:.2f}"
 
 
-def test_reconciliation_reports_cagr_values():
-    bars, signals = _make_test_data()
-    pack = get_pack("XNYS")
-    vec_result = VectorisedBacktest().run(signals, bars, pack)
-    ed_result = EventDrivenBacktest().run(signals, bars, pack, initial_cash=100_000.0)
-    report = reconcile_results(ed_result, vec_result)
-    # Both CAGR values should be finite numbers
-    assert not np.isnan(report.cagr_event_driven) or len(ed_result.daily_returns) == 0
-    assert not np.isnan(report.cagr_vectorised) or len(vec_result.daily_returns) == 0
+def _per_turnover(res) -> float:
+    return float(np.sum(res.cost_bps) / max(float(np.sum(res.turnover)), 1e-9))
+
+
+def test_costs_agree_between_engines():
+    """Same cost function in both engines: cost per unit of trading matches (NYSE and NSE),
+    and at a realistic monthly cadence total cost matches too. (Day to day the event-driven
+    engine trades a bit less because of cash limits and lot rounding, so only the price of a
+    trade is compared when trading daily.)"""
+    bars, signals = _make_test_data(n_instruments=10, n_days=250)
+    for mic in ("XNYS", "XNSE"):
+        pack = get_pack(mic)
+        b = bars.with_columns(pl.col("instrument_id").str.replace("XNYS", mic))
+        s = signals.with_columns(pl.col("instrument_id").str.replace("XNYS", mic))
+        for every in (1, 20):
+            cfg = BacktestConfig(pit_level="none", top_n=5, rebalance_every=every)
+            vec = VectorisedBacktest().run(s, b, pack, cfg)
+            ed = EventDrivenBacktest().run(s, b, pack, cfg, initial_cash=100_000.0)
+            v, e = _per_turnover(vec), _per_turnover(ed)
+            assert abs(v - e) / e < 0.10, f"{mic} every={every}: {v:.2f} vs {e:.2f} bps/turnover"
+            if every == 20:
+                tv, te = float(np.sum(vec.cost_bps)), float(np.sum(ed.cost_bps))
+                assert abs(tv - te) / te < 0.10, f"{mic}: total cost {tv:.1f} vs {te:.1f} bps"
 
 
 def test_reconciliation_fails_on_large_gap():

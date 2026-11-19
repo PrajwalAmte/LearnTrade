@@ -31,7 +31,7 @@ class DoctorIssue:
 
 def run_doctor(config_path: Path | None = None) -> list[DoctorIssue]:
     """Run all diagnostic checks. Returns issues sorted by severity."""
-    from leantrade.core.config import load_config, AppSecrets
+    from learntrade.core.config import load_config, AppSecrets
 
     issues: list[DoctorIssue] = []
     secrets = AppSecrets()
@@ -46,7 +46,7 @@ def run_doctor(config_path: Path | None = None) -> list[DoctorIssue]:
                 f"Config file not found at {cfg_file}. "
                 "LearnTrade has not been initialised."
             ),
-            fix="leantrade init   (or run `leantrade serve --open` for the browser wizard)",
+            fix="learntrade init   (or run `learntrade serve --open` for the browser wizard)",
         ))
         return issues  # remaining checks depend on config
 
@@ -54,13 +54,13 @@ def run_doctor(config_path: Path | None = None) -> list[DoctorIssue]:
 
     # ── 2. Data pulled ────────────────────────────────────────────────────
     data_dir = cfg.workspace.data_dir
-    db_path = data_dir / "leantrade.duckdb"
+    db_path = data_dir / "learntrade.duckdb"
     if not db_path.exists():
         issues.append(DoctorIssue(
             severity="error",
             check="data",
             message="No data found. The PIT store has not been created yet.",
-            fix="leantrade data pull --since 2015-01-01",
+            fix="learntrade data pull --since 2015-01-01",
         ))
     else:
         try:
@@ -73,7 +73,7 @@ def run_doctor(config_path: Path | None = None) -> list[DoctorIssue]:
                     severity="warning",
                     check="data",
                     message="PIT store exists but contains no observations.",
-                    fix="leantrade data pull --since 2015-01-01",
+                    fix="learntrade data pull --since 2015-01-01",
                 ))
             else:
                 issues.append(DoctorIssue(
@@ -112,9 +112,9 @@ def run_doctor(config_path: Path | None = None) -> list[DoctorIssue]:
                 check="api_keys",
                 message=(
                     f"Provider '{provider}' is configured but its API key is not set "
-                    f"(LEANTRADE_{key_attr.upper()} in .env)."
+                    f"(LEARNTRADE_{key_attr.upper()} in .env)."
                 ),
-                fix=f"Add LEANTRADE_{key_attr.upper()}=<your-key> to .env",
+                fix=f"Add LEARNTRADE_{key_attr.upper()}=<your-key> to .env",
             ))
 
     # ── 4. Universe ───────────────────────────────────────────────────────
@@ -139,7 +139,7 @@ def run_doctor(config_path: Path | None = None) -> list[DoctorIssue]:
                                 "Cannot train without an instrument list."
                             ),
                             fix=(
-                                f"leantrade universe import --mic {mic} --file instruments.csv  "
+                                f"learntrade universe import --mic {mic} --file instruments.csv  "
                                 "(CSV with a 'symbol' column)"
                             ),
                         ))
@@ -154,15 +154,15 @@ def run_doctor(config_path: Path | None = None) -> list[DoctorIssue]:
             issues.append(DoctorIssue(
                 severity="error",
                 check="llm",
-                message="LLM is enabled with OpenAI but LEANTRADE_OPENAI_API_KEY is not set.",
-                fix="Add LEANTRADE_OPENAI_API_KEY=<your-key> to .env, or set [llm] enabled=false",
+                message="LLM is enabled with OpenAI but LEARNTRADE_OPENAI_API_KEY is not set.",
+                fix="Add LEARNTRADE_OPENAI_API_KEY=<your-key> to .env, or set [llm] enabled=false",
             ))
         elif provider == "anthropic" and not secrets.anthropic_api_key:
             issues.append(DoctorIssue(
                 severity="error",
                 check="llm",
-                message="LLM is enabled with Anthropic but LEANTRADE_ANTHROPIC_API_KEY is not set.",
-                fix="Add LEANTRADE_ANTHROPIC_API_KEY=<your-key> to .env",
+                message="LLM is enabled with Anthropic but LEARNTRADE_ANTHROPIC_API_KEY is not set.",
+                fix="Add LEARNTRADE_ANTHROPIC_API_KEY=<your-key> to .env",
             ))
         elif provider == "ollama":
             # Check if Ollama is reachable

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from leantrade.execution.microstructure import (
+from learntrade.execution.microstructure import (
     add_settlement_days,
     get_tick_size,
     parse_settlement_days,
@@ -14,8 +14,8 @@ from leantrade.execution.microstructure import (
     round_to_lot,
     round_to_tick,
 )
-from leantrade.markets.loader import get_pack
-from leantrade.markets.schema import TickBand
+from learntrade.markets.loader import get_pack
+from learntrade.markets.schema import TickBand
 
 
 BANDS = [

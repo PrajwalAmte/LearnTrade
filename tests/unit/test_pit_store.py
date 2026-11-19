@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from leantrade.core.types import InstrumentId, Instrument, Observation
-from leantrade.data.store.pit import PITStore
+from learntrade.core.types import InstrumentId, Instrument, Observation
+from learntrade.data.store.pit import PITStore
 
 UTC = timezone.utc
 

@@ -20,16 +20,16 @@ from typing import Any, Literal
 import numpy as np
 import polars as pl
 
-from leantrade.core.types import InstrumentId, Order
-from leantrade.execution.costs import TradeCost, compute_trade_cost
-from leantrade.execution.microstructure import (
+from learntrade.core.types import InstrumentId, Order
+from learntrade.execution.costs import TradeCost, compute_trade_cost
+from learntrade.execution.microstructure import (
     is_trading_day,
     participation_limit_qty,
     round_to_lot,
     round_to_tick,
 )
-from leantrade.execution.simulator.state import Fill, PortfolioState, Position
-from leantrade.markets.schema import MarketPack
+from learntrade.execution.simulator.state import Fill, PortfolioState, Position
+from learntrade.markets.schema import MarketPack
 
 
 @dataclass

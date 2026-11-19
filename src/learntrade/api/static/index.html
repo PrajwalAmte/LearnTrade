@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LeanTrade</title>
+<title>LearnTrade</title>
 <style>
 :root{--bg:#f6f7f9;--card:#fff;--ink:#16202a;--muted:#5d6b78;--line:#e3e7ec;--accent:#1f6feb;--good:#12805c;--bad:#b3261e;--warn:#8a5a00;--warnbg:#fff4d6}
 @media (prefers-color-scheme:dark){:root{--bg:#10151b;--card:#18202a;--ink:#e8edf2;--muted:#93a1ae;--line:#2a3541;--accent:#5b9bff;--good:#3ecf9a;--bad:#ff8a80;--warn:#f1c765;--warnbg:#3a2f12}}
@@ -46,6 +46,14 @@ tbody tr{cursor:pointer}tbody tr:hover{background:var(--bg)}
 pre{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;overflow:auto;max-height:180px;font-size:12px;white-space:pre-wrap}
 .ic{width:1.1em;height:1.1em;vertical-align:-.18em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .ic.lg{width:1.2em;height:1.2em;color:var(--accent)}
+.trust{border-left:4px solid var(--line);padding-left:14px}
+.trust.modest{border-color:var(--good)}.trust.unproven,.trust.unknown{border-color:#d9a400}.trust.no_evidence,.trust.none{border-color:var(--bad)}
+.badge{display:inline-block;font-size:12px;font-weight:700;border-radius:99px;padding:2px 10px;margin-right:8px;background:var(--line)}
+.trust.modest .badge{background:#d9f3e8;color:#0b5e43}.trust.unproven .badge,.trust.unknown .badge{background:var(--warnbg);color:var(--warn)}.trust.no_evidence .badge,.trust.none .badge{background:#fde7e5;color:var(--bad)}
+@media (prefers-color-scheme:dark){.trust.modest .badge{background:#12382c;color:#3ecf9a}.trust.no_evidence .badge,.trust.none .badge{background:#3b1714}}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px 16px;margin:10px 0 0;font-size:13px}
+.facts div span{color:var(--muted)}
+details.why summary{cursor:pointer;color:var(--accent);font-size:14px;margin-top:8px}
 .hide{display:none!important}
 .big{font-size:28px;font-weight:700}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:12px 0}
@@ -70,11 +78,11 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding:12px 0 28px}
 </defs></svg>
 <div class="wrap">
 <header>
-  <h1><svg class="ic lg" aria-hidden="true"><use href="#i-chart"/></svg> LeanTrade</h1>
+  <h1><svg class="ic lg" aria-hidden="true"><use href="#i-chart"/></svg> LearnTrade</h1>
   <div><span id="modePill" class="pill hide"></span></div>
 </header>
 
-<div class="notice">LeanTrade gives <b>information, not advice</b>. It never buys or sells anything for you, and nobody can predict markets perfectly. Never invest money you can't afford to lose.</div>
+<div class="notice">LearnTrade gives <b>information, not financial advice</b>, and never trades for you.</div>
 
 <!-- Welcome / setup -->
 <section id="welcome" class="card hide">
@@ -99,6 +107,7 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding:12px 0 28px}
     <textarea id="symbols" placeholder="Example for India: RELIANCE, TCS, INFY, HDFCBANK, ICICIBANK, ITC, LT, SBIN"></textarea>
     <p class="muted small">Use the short ticker symbol, without the exchange name. Not sure? Search the company on your broker's app — the short code is the symbol.</p>
     <button class="primary" id="btnReal">Download data &amp; set up</button>
+    <p class="muted small" style="margin-top:14px">In the USA? Skip typing: <button id="btnSP500" style="padding:6px 12px">Use the whole S&amp;P 500</button> It loads every member with the date it joined, so stocks are only used from when they were actually in the index.</p>
   </div>
   <div id="startErr" class="err hide"></div>
 </section>
@@ -129,9 +138,19 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding:12px 0 28px}
     <p id="srcNote" class="small muted" style="margin-bottom:0"></p>
   </div>
 
+
+  <div class="card trust" id="trust">
+    <h2 style="font-size:16px"><span class="badge" id="trustBadge"></span>How well it has worked</h2>
+    <p id="trustHead" style="margin:6px 0"></p>
+    <details class="why"><summary>Why, and the numbers behind it</summary>
+      <ul id="trustWhy" class="small" style="padding-left:18px"></ul>
+      <div class="facts" id="trustFacts"></div>
+    </details>
+  </div>
+
   <div class="card">
     <h2>Check any single stock</h2>
-    <p class="muted small">Not in your list? Type its short symbol and LeanTrade will fetch its prices and show where it would rank against your list.</p>
+    <p class="muted small">Not in your list? Type its short symbol and LearnTrade will fetch its prices and show where it would rank against your list.</p>
     <div class="row" style="align-items:end">
       <div><label for="oneSym">Stock symbol</label><input id="oneSym" placeholder="Example: BAJAJFINSV" autocomplete="off"></div>
       <div style="flex:0 0 auto"><button class="primary" id="btnOne">Check this stock</button></div>
@@ -141,8 +160,8 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding:12px 0 28px}
   <div class="card">
     <h2>Stocks, ranked</h2>
     <p class="muted small">Ranked from strongest to weakest outlook <i>compared with the other stocks in your list</i>. Tap a stock for details.</p>
-    <div id="roughNote" class="notice hide">These are rough guesses based only on recent price momentum — the model isn't trained for this view yet. Tap “Update data” to train it.</div>
-    <div id="weakNote" class="notice hide">The model did not find a reliable pattern in this group of stocks (every stock gets almost the same chance). Treat the order below as a weak hint, not a signal. A longer list of stocks usually helps.</div>
+    <div id="roughNote" class="notice hide">Quick rankings from recent price moves. Tap “Update data” to train the model for sharper ones.</div>
+    <div id="weakNote" class="notice hide">The model sees little difference between these stocks right now, so the order below is a mild hint. More stocks usually sharpen it.</div>
     <div id="rankErr" class="err hide"></div>
     <table>
       <thead><tr><th>#</th><th>Stock</th><th>Outlook</th><th class="hide-sm">Chance it rises</th><th class="hide-sm">Bumpiness</th></tr></thead>
@@ -162,8 +181,9 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding:12px 0 28px}
       <div class="stat"><div class="small muted">Chance it ends higher</div><div class="big" id="dUp"></div><div class="small muted">Not a promise — a probability.</div></div>
       <div class="stat"><div class="small muted">Typical range</div><div class="big" id="dRange" style="font-size:20px"></div><div class="small muted">Most outcomes land in here.</div></div>
     </div>
+    <p id="dTrust" class="small" style="margin:0 0 12px"></p>
     <p id="dOutside" class="small hide" style="margin:0 0 12px"></p>
-    <div id="dRough" class="notice hide">Rough guess only (no trained model yet).</div>
+    <div id="dRough" class="notice hide">Quick estimate from recent price moves.</div>
     <div id="chart"></div>
     <p class="small muted" style="margin:4px 0 0">Price over the last ~6 months.</p>
   </div>
@@ -174,7 +194,7 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding:12px 0 28px}
   </div>
 </section>
 
-<footer>LeanTrade runs on your own computer. Your data stays with you. · <a href="/api/docs" style="color:inherit">For developers</a></footer>
+<footer>LearnTrade runs on your own computer. Your data stays with you. · <a href="/api/docs" style="color:inherit">For developers</a></footer>
 </div>
 
 <script>
@@ -231,6 +251,7 @@ async function loadRank() {
       return showErr('rankErr', 'No data for this market yet. Tap “Update data”.');
     }
     show('roughNote', d.rough);
+    renderTrust(d.reliability);
     const ps = d.rows.map(r => r.p_up);
     show('weakNote', !d.rough && (Math.max(...ps) - Math.min(...ps)) < 0.01);
     $('srcNote').textContent = `Outlook is measured over ${d.horizon_label}, relative to the market. ${d.count} stocks.`;
@@ -250,6 +271,30 @@ async function loadRank() {
       $('rankBody').appendChild(tr);
     }
   } catch(e) { $('rankBody').innerHTML=''; showErr('rankErr', e.message); }
+}
+
+
+const LEVEL = {modest:'Looks useful', unproven:'Early signal', no_evidence:'Not working here', none:'Quick estimate', unknown:'Not measured'};
+function ic(v, r) { return v == null ? 'n/a' : (v>=0?'+':'') + v.toFixed(3) + (r ? ' (range ' + r[0].toFixed(3) + ' to ' + r[1].toFixed(3) + ')' : ''); }
+function renderTrust(rel) {
+  const el = $('trust'); el.className = 'card trust ' + rel.level;
+  $('trustBadge').textContent = LEVEL[rel.level] || rel.level;
+  $('trustHead').textContent = rel.headline;
+  const why = $('trustWhy'); why.innerHTML = '';
+  for (const r of rel.reasons) { const li = document.createElement('li'); li.textContent = r; why.appendChild(li); }
+  const f = rel.facts || {}, rows = [];
+  if (f.model_id) rows.push(['Model', f.model_id]);
+  if (f.trained_at) rows.push(['Trained', f.trained_at.slice(0,10)]);
+  if (f.data_through) rows.push(['Training data through', f.data_through]);
+  if (f.price_data_age_days != null) rows.push(['Latest prices', f.price_data_age_days === 0 ? 'up to date' : f.price_data_age_days + ' days old']);
+  if (f.n_instruments) rows.push(['Stocks / days of history', f.n_instruments + ' / ' + f.n_days]);
+  if (f.rank_ic != null) rows.push(['Ranking skill in testing (rank IC)', ic(f.rank_ic, f.rank_ic_ci)]);
+  if (f.holdout_rank_ic != null) rows.push(['Final untouched test (' + f.holdout_days + ' days)', ic(f.holdout_rank_ic)]);
+  if (f.auc != null) rows.push(['Direction accuracy (AUC; 0.5 = coin flip)', f.auc.toFixed(2)]);
+  rows.push(['Stock list', f.membership_mode === 'point_in_time' ? 'index membership by date' : "today's list"]);
+  if (f.label_type) rows.push(['Measured against', f.label_type==='excess' ? (f.benchmark || 'the market index') : 'raw returns (no index)']);
+  const box = $('trustFacts'); box.innerHTML = '';
+  for (const [k,v] of rows) { const d = document.createElement('div'); const s = document.createElement('span'); s.textContent = k + ': '; d.appendChild(s); d.appendChild(document.createTextNode(v)); box.appendChild(d); }
 }
 
 function spark(points) {
@@ -277,6 +322,7 @@ async function openStock(iid) {
     $('dRange').textContent = `${pct(d.low,0)} to ${pct(d.high,0)}`;
     show('dRough', d.rough);
     show('dOutside', !!d.outside);
+    $('dTrust').textContent = 'Model reliability: ' + (LEVEL[d.reliability.level] || '') + '. ' + d.reliability.headline;
     if (d.outside) $('dOutside').textContent = `Not in your list. Compared with your ${d.outside.of - 1} stocks, it would rank ${d.outside.would_rank} of ${d.outside.of}.`;
     $('chart').innerHTML = spark(d.closes);
     const ul = $('dNews'); ul.innerHTML='';
@@ -312,6 +358,7 @@ function trackJob(id) {
 
 $('btnDemo').onclick = async () => { try { const j = await post('/start', {mode:'demo'}); trackJob(j.id); } catch(e) { showErr('startErr', e.message); } };
 $('btnShowReal').onclick = () => show('realForm', true);
+$('btnSP500').onclick = async () => { show('startErr', false); try { const j = await post('/start', {mode:'real', index:'SP500'}); trackJob(j.id); } catch(e) { showErr('startErr', e.message); } };
 $('btnReal').onclick = async () => {
   show('startErr', false);
   try { const j = await post('/start', {mode:'real', mic:$('mic').value, symbols:$('symbols').value}); trackJob(j.id); }

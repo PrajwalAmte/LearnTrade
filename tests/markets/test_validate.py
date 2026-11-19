@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from leantrade.markets.validate import PackIssue, PackValidationReport, validate_pack, validate_all_packs
+from learntrade.markets.validate import PackIssue, PackValidationReport, validate_pack, validate_all_packs
 
 
 SHIPPED_MICS = ["XNYS", "XNAS", "XNSE"]

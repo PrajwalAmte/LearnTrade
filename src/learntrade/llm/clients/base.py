@@ -2,7 +2,7 @@
 LLM client protocol.
 
 All provider-specific clients implement ``LLMClient``.
-Registered via the ``leantrade.llm_providers`` entry-point group.
+Registered via the ``learntrade.llm_providers`` entry-point group.
 """
 
 from __future__ import annotations

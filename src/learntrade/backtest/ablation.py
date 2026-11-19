@@ -25,7 +25,7 @@ from typing import Any
 
 import numpy as np
 
-from leantrade.quant.validation.metrics import (
+from learntrade.quant.validation.metrics import (
     ICResult,
     block_bootstrap_ci,
     compute_portfolio_metrics,
@@ -179,7 +179,7 @@ class AblationRunner:
                 rung.enable_verifier, rung.enable_escalation,
                 rung.enable_meta_combiner, rung.enable_memory]):
             try:
-                from leantrade.llm.router import LLMRouter
+                from learntrade.llm.router import LLMRouter
                 router = LLMRouter()
                 if not router.is_enabled:
                     return RungResult(
@@ -230,12 +230,12 @@ class AblationRunner:
         since: datetime,
         until: datetime,
     ) -> tuple[list[float], list[float]]:
-        from leantrade.features.price_volume import PriceVolumeFeatureSet
-        from leantrade.quant.models.ridge import RidgeReturnModel
-        from leantrade.quant.targets.labels import compute_forward_returns, merge_features_labels
-        from leantrade.quant.targets.horizon import get_horizon
-        from leantrade.quant.validation.walk_forward import PurgedWalkForwardCV
-        from leantrade.core.clock import now as _now
+        from learntrade.features.price_volume import PriceVolumeFeatureSet
+        from learntrade.quant.models.ridge import RidgeReturnModel
+        from learntrade.quant.targets.labels import compute_forward_returns, merge_features_labels
+        from learntrade.quant.targets.horizon import get_horizon
+        from learntrade.quant.validation.walk_forward import PurgedWalkForwardCV
+        from learntrade.core.clock import now as _now
 
         feature_set = PriceVolumeFeatureSet()
         h = get_horizon(horizon)
@@ -257,7 +257,7 @@ class AblationRunner:
 
         # LLM evidence features (rung 2+)
         if rung.enable_llm_evidence_features:
-            from leantrade.llm.extraction.feature_bridge import FEATURE_NAMES
+            from learntrade.llm.extraction.feature_bridge import FEATURE_NAMES
             ev_cols = [c for c in FEATURE_NAMES if c in merged.columns]
             feat_cols = feat_cols + ev_cols
 
@@ -270,7 +270,7 @@ class AblationRunner:
         all_rets: list[float] = []
 
         import polars as pl
-        from leantrade.core.types import InstrumentId
+        from learntrade.core.types import InstrumentId
 
         for fold in cv.split(dates, h.forward_days):
             X_tr, y_tr = X[fold.train_indices], y[fold.train_indices]

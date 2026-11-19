@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 import polars as pl
 import pytest
 
-from leantrade.quant.targets.labels import (
+from learntrade.quant.targets.labels import (
     compute_forward_returns,
     merge_features_labels,
 )

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from leantrade.core.types import (
+from learntrade.core.types import (
     Forecast,
     ForecastQuantiles,
     Instrument,

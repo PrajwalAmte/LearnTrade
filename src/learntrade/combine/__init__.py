@@ -1,5 +1,5 @@
-"""leantrade.combine"""
+"""learntrade.combine"""
 
-from leantrade.combine.combiner import CombinerConfig, MetaCombiner
+from learntrade.combine.combiner import CombinerConfig, MetaCombiner
 
 __all__ = ["CombinerConfig", "MetaCombiner"]

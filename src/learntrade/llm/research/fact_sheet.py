@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from leantrade.core.types import Forecast
+    from learntrade.core.types import Forecast
 
 
 @dataclass

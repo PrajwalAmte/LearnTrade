@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 import polars as pl
 import pytest
 
-from leantrade.data.quality.checks import check_duplicates, check_leakage, run_all_checks
+from learntrade.data.quality.checks import check_duplicates, check_leakage, run_all_checks
 
 
 def _make_df(available_at_dates: list[datetime]) -> pl.DataFrame:

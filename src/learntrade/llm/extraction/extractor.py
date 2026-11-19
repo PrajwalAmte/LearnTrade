@@ -15,8 +15,8 @@ import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from leantrade.llm.extraction.schemas import ExtractedEvidence, KeyFigure
-from leantrade.llm.extraction.prompts import (
+from learntrade.llm.extraction.schemas import ExtractedEvidence, KeyFigure
+from learntrade.llm.extraction.prompts import (
     EXTRACT_SYSTEM_V1,
     EXTRACT_USER_V1,
     VERIFY_SYSTEM_V1,
@@ -25,7 +25,7 @@ from leantrade.llm.extraction.prompts import (
 )
 
 if TYPE_CHECKING:
-    from leantrade.llm.router import LLMRouter
+    from learntrade.llm.router import LLMRouter
 
 logger = logging.getLogger(__name__)
 

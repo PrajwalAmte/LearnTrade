@@ -1,1 +1,1 @@
-"""leantrade.i18n — interface translations and locale formats."""
+"""learntrade.i18n — interface translations and locale formats."""

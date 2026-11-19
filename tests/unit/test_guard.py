@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from leantrade.llm.guard import (
+from learntrade.llm.guard import (
     is_contaminated,
     list_cutoffs,
     mask_document,

@@ -1,7 +1,7 @@
 """
 Tiny background-job runner for the web UI.
 
-Each job is a list of steps; each step is one ``leantrade`` CLI call run in a
+Each job is a list of steps; each step is one ``learntrade`` CLI call run in a
 subprocess. Reusing the CLI means the UI exercises exactly the code paths that
 are tested from the terminal. Only one job runs at a time (the data files allow a
 single writer), and read endpoints report "busy" while it does.
@@ -20,7 +20,7 @@ from typing import Any
 @dataclass
 class Step:
     title: str           # plain-English label shown to the user
-    args: list[str]      # CLI arguments after "leantrade"
+    args: list[str]      # CLI arguments after "learntrade"
     optional: bool = False  # failure does not fail the whole job
 
 
@@ -80,7 +80,7 @@ def _run(job: Job) -> None:
         job.log.append(f"▶ {step.title}")
         try:
             proc = subprocess.Popen(
-                [sys.executable, "-m", "leantrade.cli.main", *step.args],
+                [sys.executable, "-m", "learntrade.cli.main", *step.args],
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
             )
             assert proc.stdout is not None

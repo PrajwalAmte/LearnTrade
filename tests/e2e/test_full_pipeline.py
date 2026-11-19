@@ -33,8 +33,8 @@ UTC = timezone.utc
 def workspace(tmp_path_factory):
     """Single workspace used across all e2e tests."""
     td = tmp_path_factory.mktemp("e2e_workspace")
-    from leantrade.data.store.pit import PITStore
-    from leantrade.setup.demo import generate_demo_data
+    from learntrade.data.store.pit import PITStore
+    from learntrade.setup.demo import generate_demo_data
 
     store = PITStore(td)
     # Generate 300 trading days of synthetic data for 50 instruments
@@ -59,7 +59,7 @@ class TestPhase1Data:
 
     def test_pit_golden_rule_enforced(self, workspace):
         """Bars with available_at in the future must NOT appear in PIT queries."""
-        from leantrade.core.types import InstrumentId
+        from learntrade.core.types import InstrumentId
         store = workspace["store"]
         past = datetime(2020, 1, 1, tzinfo=UTC)
         ids = [InstrumentId("XNYS:SYM00")]
@@ -67,8 +67,8 @@ class TestPhase1Data:
         assert df.is_empty(), "PIT rule violated: future bars visible at past as_of"
 
     def test_quality_checks_pass_on_demo_data(self, workspace):
-        from leantrade.core.types import InstrumentId
-        from leantrade.data.quality.checks import run_all_checks
+        from learntrade.core.types import InstrumentId
+        from learntrade.data.quality.checks import run_all_checks
         store = workspace["store"]
         now = datetime.now(tz=UTC)
         since = now - _dt.timedelta(days=365)
@@ -80,7 +80,7 @@ class TestPhase1Data:
         assert report.passed, f"Quality check errors: {report.issues}"
 
     def test_market_packs_all_pass_validation(self):
-        from leantrade.markets.validate import validate_all_packs
+        from learntrade.markets.validate import validate_all_packs
         reports = validate_all_packs()
         # All shipped packs (including Phase 6 additions) must have zero errors
         for mic, report in reports.items():
@@ -88,7 +88,7 @@ class TestPhase1Data:
             assert errors == [], f"{mic} validation errors: {errors}"
 
     def test_phase6_market_packs_present(self):
-        from leantrade.markets.loader import list_packs
+        from learntrade.markets.loader import list_packs
         packs = list_packs()
         for mic in ["XLON", "XETR", "XTKS", "XASX", "XBOM"]:
             assert mic in packs, f"Phase 6 market pack {mic} not found"
@@ -98,8 +98,8 @@ class TestPhase1Data:
 
 @pytest.fixture(scope="module")
 def training_result(workspace):
-    from leantrade.quant.trainer import QuantTrainer
-    from leantrade.quant.models.ridge import RidgeReturnModel
+    from learntrade.quant.trainer import QuantTrainer
+    from learntrade.quant.models.ridge import RidgeReturnModel
     store = workspace["store"]
     now = datetime.now(tz=UTC)
     since = now - _dt.timedelta(days=290)
@@ -130,12 +130,12 @@ class TestPhase2Quant:
         assert Path(training_result.model_path).exists()
 
     def test_vectorised_backtest_runs(self, workspace, training_result):
-        from leantrade.backtest.engine import BacktestConfig, VectorisedBacktest
-        from leantrade.backtest.report import generate_report
-        from leantrade.features.price_volume import PriceVolumeFeatureSet
-        from leantrade.markets.loader import get_pack
-        from leantrade.quant.targets.labels import compute_forward_returns, merge_features_labels
-        from leantrade.quant.targets.horizon import get_horizon
+        from learntrade.backtest.engine import BacktestConfig, VectorisedBacktest
+        from learntrade.backtest.report import generate_report
+        from learntrade.features.price_volume import PriceVolumeFeatureSet
+        from learntrade.markets.loader import get_pack
+        from learntrade.quant.targets.labels import compute_forward_returns, merge_features_labels
+        from learntrade.quant.targets.horizon import get_horizon
         store = workspace["store"]
         now = datetime.now(tz=UTC)
         since = now - _dt.timedelta(days=290)
@@ -172,8 +172,8 @@ class TestPhase2Quant:
 
 class TestPhase3Execution:
     def test_cost_model_xnys(self):
-        from leantrade.execution.costs import compute_trade_cost
-        from leantrade.markets.loader import get_pack
+        from learntrade.execution.costs import compute_trade_cost
+        from learntrade.markets.loader import get_pack
         pack = get_pack("XNYS")
         cost = compute_trade_cost("sell", 500, 100.0, 1_000_000, 0.20, pack)
         assert cost.total > 0
@@ -181,9 +181,9 @@ class TestPhase3Execution:
         assert cost.taxes > 0  # SEC fee on sells
 
     def test_event_driven_simulator_runs(self, workspace):
-        from leantrade.core.types import InstrumentId, Order
-        from leantrade.execution.simulator.engine import EventDrivenSimulator, SimulatorConfig
-        from leantrade.markets.loader import get_pack
+        from learntrade.core.types import InstrumentId, Order
+        from learntrade.execution.simulator.engine import EventDrivenSimulator, SimulatorConfig
+        from learntrade.markets.loader import get_pack
         store = workspace["store"]
         now = datetime.now(tz=UTC)
         since = now - _dt.timedelta(days=10)
@@ -202,8 +202,8 @@ class TestPhase3Execution:
         assert len(result.nav_history) == 5
 
     def test_live_execution_requires_three_optins(self):
-        from leantrade.execution.live import check_live_gates, LiveExecutionError
-        from leantrade.core.types import InstrumentId, Order
+        from learntrade.execution.live import check_live_gates, LiveExecutionError
+        from learntrade.core.types import InstrumentId, Order
         order = Order(instrument_id=InstrumentId("XNYS:IBM"), side="buy",
                       quantity=100, notes="confirmed")
         # Gate 1 (config mode != "live") should block by default
@@ -215,7 +215,7 @@ class TestPhase3Execution:
 
 class TestPhase4LLM:
     def test_cache_100pct_hit_rate(self, tmp_path):
-        from leantrade.llm.cache import LLMCache
+        from learntrade.llm.cache import LLMCache
         cache = LLMCache(tmp_path / "cache.duckdb")
         response = {"choices": [{"message": {"content": "ok"}}], "usage": {}}
         cache.set("k1", "gpt-4o", "extract", response)
@@ -227,15 +227,15 @@ class TestPhase4LLM:
         cache.close()
 
     def test_contamination_guard_blocks_training_signal(self):
-        from leantrade.llm.guard import is_contaminated
+        from learntrade.llm.guard import is_contaminated
         # gpt-4o cutoff = 2023-10-01; a 2022 backtest date is contaminated
         assert is_contaminated("gpt-4o", datetime(2022, 6, 1, tzinfo=UTC))
         # 2026 is clean
         assert not is_contaminated("gpt-4o", datetime(2026, 1, 1, tzinfo=UTC))
 
     def test_feature_bridge_pit_enforcement(self):
-        from leantrade.llm.extraction.schemas import ExtractedEvidence
-        from leantrade.llm.extraction.feature_bridge import (
+        from learntrade.llm.extraction.schemas import ExtractedEvidence
+        from learntrade.llm.extraction.feature_bridge import (
             evidence_list_to_dataframe, merge_evidence_features_pit,
         )
         ev = ExtractedEvidence(
@@ -257,7 +257,7 @@ class TestPhase4LLM:
         assert float(merged2["guidance_change_score"][0]) == 1.0
 
     def test_budget_tracker_enforces_per_run_limit(self):
-        from leantrade.llm.router import BudgetTracker, BudgetExceededError
+        from learntrade.llm.router import BudgetTracker, BudgetExceededError
         bt = BudgetTracker(per_run_limit=0.01, per_day_limit=100.0)
         bt.record(0.009)
         with pytest.raises(BudgetExceededError):
@@ -268,8 +268,8 @@ class TestPhase4LLM:
 
 class TestPhase5Portfolio:
     def test_hrp_allocator_valid_weights(self, workspace):
-        from leantrade.core.types import Forecast, ForecastQuantiles, InstrumentId
-        from leantrade.portfolio.allocators import HRPAllocator
+        from learntrade.core.types import Forecast, ForecastQuantiles, InstrumentId
+        from learntrade.portfolio.allocators import HRPAllocator
         rng = np.random.default_rng(7)
         forecasts = [
             Forecast(
@@ -288,8 +288,8 @@ class TestPhase5Portfolio:
         assert all(v >= -1e-9 for v in weights.values())
 
     def test_constraints_applied(self):
-        from leantrade.core.types import InstrumentId
-        from leantrade.portfolio.constraints import PortfolioConstraints, apply_constraints
+        from learntrade.core.types import InstrumentId
+        from learntrade.portfolio.constraints import PortfolioConstraints, apply_constraints
         weights = {InstrumentId(f"XNYS:SYM{i:02d}"): 0.5 if i < 2 else 0.0
                    for i in range(5)}
         # Remove zero weights before constraint application
@@ -303,8 +303,8 @@ class TestPhase5Portfolio:
         assert abs(sum(result.values()) - 2 * c.max_position) < 1e-9
 
     def test_kill_switch_zero_emissions(self):
-        from leantrade.core.types import InstrumentId, Order
-        from leantrade.risk.engine import KillSwitchError, RiskEngine
+        from learntrade.core.types import InstrumentId, Order
+        from learntrade.risk.engine import KillSwitchError, RiskEngine
         engine = RiskEngine()
         engine.start_of_day(100_000.0)
         engine.engage_kill_switch()
@@ -315,12 +315,12 @@ class TestPhase5Portfolio:
         assert engine.kill_switch_active
 
     def test_attribution_store_llm_explains_not_sets(self, workspace):
-        from leantrade.attribution.store import AttributionStore
-        from leantrade.core.types import (
+        from learntrade.attribution.store import AttributionStore
+        from learntrade.core.types import (
             DecisionRecord, Forecast, ForecastAttribution, ForecastQuantiles,
             InstrumentId,
         )
-        from leantrade.portfolio.allocators import HRPAllocator
+        from learntrade.portfolio.allocators import HRPAllocator
         rng = np.random.default_rng(42)
         fc = [
             Forecast(
@@ -353,8 +353,8 @@ class TestPhase5Portfolio:
         assert float(df["target_weight"][0]) > 0
 
     def test_meta_combiner_blends_signals(self):
-        from leantrade.combine.combiner import CombinerConfig, MetaCombiner
-        from leantrade.core.types import Forecast, ForecastQuantiles, InstrumentId
+        from learntrade.combine.combiner import CombinerConfig, MetaCombiner
+        from learntrade.core.types import Forecast, ForecastQuantiles, InstrumentId
         rng = np.random.default_rng(10)
         forecasts = [
             Forecast(
@@ -380,7 +380,7 @@ class TestPhase5Portfolio:
 class TestPhase6Product:
     def test_doctor_identifies_no_data_issue(self, tmp_path):
         """Doctor must flag missing data when PIT store is empty."""
-        from leantrade.setup.doctor import run_doctor
+        from learntrade.setup.doctor import run_doctor
         # Use a config pointing to an empty dir with no data
         cfg_text = f"""
 [workspace]
@@ -411,7 +411,7 @@ kill_switch = true
 [execution]
 mode = "paper"
 """
-        cfg_path = tmp_path / "leantrade.toml"
+        cfg_path = tmp_path / "learntrade.toml"
         cfg_path.write_text(cfg_text)
         issues = run_doctor(config_path=cfg_path)
         checks = [i.check for i in issues]
@@ -419,8 +419,8 @@ mode = "paper"
         assert "data" in checks
 
     def test_live_execution_three_optins_required(self):
-        from leantrade.execution.live import check_live_gates, LiveExecutionError
-        from leantrade.core.types import InstrumentId, Order
+        from learntrade.execution.live import check_live_gates, LiveExecutionError
+        from learntrade.core.types import InstrumentId, Order
         order = Order(instrument_id=InstrumentId("XNYS:IBM"),
                       side="buy", quantity=100, notes="confirmed")
         # Must fail at Gate 1 (config mode != "live") by default
@@ -428,8 +428,8 @@ mode = "paper"
             check_live_gates([order])
 
     def test_demo_data_generation(self, tmp_path):
-        from leantrade.data.store.pit import PITStore
-        from leantrade.setup.demo import generate_demo_data
+        from learntrade.data.store.pit import PITStore
+        from learntrade.setup.demo import generate_demo_data
         store = PITStore(tmp_path)
         n = generate_demo_data(store, mic="XNYS", n_days=20, seed=0)
         assert n >= 20 * 50  # at least 20 bars × 50 instruments
@@ -439,7 +439,7 @@ mode = "paper"
 
     def test_api_health_endpoint(self):
         from fastapi.testclient import TestClient
-        from leantrade.api.app import create_app
+        from learntrade.api.app import create_app
         client = TestClient(create_app())
         resp = client.get("/api/health")
         assert resp.status_code == 200
@@ -448,7 +448,7 @@ mode = "paper"
     def test_api_config_endpoint(self, tmp_path):
         """Config endpoint returns valid structure."""
         from fastapi.testclient import TestClient
-        from leantrade.api.app import create_app
+        from learntrade.api.app import create_app
         client = TestClient(create_app())
         resp = client.get("/api/config")
         assert resp.status_code == 200
@@ -458,7 +458,7 @@ mode = "paper"
 
     def test_api_setup_wizard_steps(self):
         from fastapi.testclient import TestClient
-        from leantrade.api.app import create_app
+        from learntrade.api.app import create_app
         client = TestClient(create_app())
         # Setup status
         resp = client.get("/api/setup/status")
@@ -472,10 +472,10 @@ mode = "paper"
 
     def test_phase_1_to_5_tests_still_pass(self):
         """Smoke test: spot-check that nothing from earlier phases is broken."""
-        from leantrade.core.types import InstrumentId
+        from learntrade.core.types import InstrumentId
         assert InstrumentId("XNYS:IBM").mic == "XNYS"
-        from leantrade.markets.loader import get_pack
+        from learntrade.markets.loader import get_pack
         pack = get_pack("XNYS")
         assert pack.currency == "USD"
-        from leantrade.llm.guard import is_contaminated
+        from learntrade.llm.guard import is_contaminated
         assert is_contaminated("gpt-4o", datetime(2022, 1, 1, tzinfo=UTC))

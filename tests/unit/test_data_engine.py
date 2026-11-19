@@ -12,11 +12,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from leantrade.core.config import AppConfig, DataProvidersConfig, DataConfig
-from leantrade.core.types import InstrumentId, Observation
-from leantrade.data.engine import DataEngine
-from leantrade.data.providers.base import DataProvider, FetchRequest, ProviderCapability, PitLevel
-from leantrade.data.store.pit import PITStore
+from learntrade.core.config import AppConfig, DataProvidersConfig, DataConfig
+from learntrade.core.types import InstrumentId, Observation
+from learntrade.data.engine import DataEngine
+from learntrade.data.providers.base import DataProvider, FetchRequest, ProviderCapability, PitLevel
+from learntrade.data.store.pit import PITStore
 
 UTC = timezone.utc
 
@@ -89,7 +89,8 @@ def test_pull_uses_first_provider(store: PITStore) -> None:
     )
 
     assert provider.fetch_called
-    assert summary.total_added == 6  # 2 instruments × 3 obs each
+    # 2 universe instruments + the market's benchmark (XNYS:SPY), 3 obs each
+    assert summary.total_added == 9
 
 
 def test_pull_falls_back_on_provider_failure(store: PITStore) -> None:
@@ -118,7 +119,7 @@ def test_pull_falls_back_on_provider_failure(store: PITStore) -> None:
 
     assert failing.fetch_called
     assert good.fetch_called
-    assert summary.total_added == 2
+    assert summary.total_added == 4  # 1 universe instrument + benchmark, 2 obs each
     assert any(r.error for r in summary.results)
     assert any(r.success for r in summary.results)
 
@@ -155,4 +156,18 @@ def test_pull_summary_to_dict(store: PITStore) -> None:
     d = summary.to_dict()
     assert "total_observations_added" in d
     assert "results" in d
-    assert d["total_observations_added"] == 1
+    assert d["total_observations_added"] == 2  # instrument + benchmark
+
+
+def test_pull_includes_market_benchmark_but_not_in_universe(store: PITStore) -> None:
+    """Excess-return labels need the benchmark's bars; it must not become a ranked stock."""
+    provider = StubProvider("stub", obs_count=2)
+    cfg = _config_with_instruments("AAA", "BBB")
+    engine = DataEngine(cfg, store)
+    engine._registry._cache["stub"] = provider
+    now = datetime(2024, 1, 10, tzinfo=UTC)
+    engine.pull(since=datetime(2024, 1, 1, tzinfo=UTC), until=now, capabilities={"bars_daily"})
+    ids = {r[0] for r in store._con.execute(
+        "SELECT DISTINCT instrument_id FROM observations WHERE kind='bar'").fetchall()}
+    assert "XNYS:SPY" in ids
+    assert "XNYS:SPY" not in {str(i) for i in store.get_universe("XNYS", now)}

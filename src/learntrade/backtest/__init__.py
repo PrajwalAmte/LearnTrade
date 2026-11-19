@@ -1,11 +1,11 @@
-"""leantrade.backtest"""
+"""learntrade.backtest"""
 
-from leantrade.backtest.ablation import AblationRunner, AblationReport, STANDARD_LADDER
-from leantrade.backtest.engine import (
+from learntrade.backtest.ablation import AblationRunner, AblationReport, STANDARD_LADDER
+from learntrade.backtest.engine import (
     BacktestConfig, BacktestResult, EventDrivenBacktest, VectorisedBacktest,
 )
-from leantrade.backtest.reconciliation import ReconciliationReport, reconcile_results
-from leantrade.backtest.report import BacktestReport, generate_report
+from learntrade.backtest.reconciliation import ReconciliationReport, reconcile_results
+from learntrade.backtest.report import BacktestReport, generate_report
 
 __all__ = [
     "AblationReport", "AblationRunner", "BacktestConfig", "BacktestReport",

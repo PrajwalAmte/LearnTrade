@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 import polars as pl
 import pytest
 
-from leantrade.data.quality.checks import (
+from learntrade.data.quality.checks import (
     check_corporate_actions,
     check_duplicates,
     check_leakage,

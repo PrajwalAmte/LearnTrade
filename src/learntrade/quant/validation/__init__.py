@@ -1,6 +1,6 @@
-"""leantrade.quant.validation"""
+"""learntrade.quant.validation"""
 
-from leantrade.quant.validation.metrics import (
+from learntrade.quant.validation.metrics import (
     ICResult,
     block_bootstrap_ci,
     compute_portfolio_metrics,
@@ -8,7 +8,7 @@ from leantrade.quant.validation.metrics import (
     ic_tstat,
     information_coefficient,
 )
-from leantrade.quant.validation.walk_forward import PurgedWalkForwardCV, WalkForwardFold
+from learntrade.quant.validation.walk_forward import PurgedWalkForwardCV, WalkForwardFold
 
 __all__ = [
     "ICResult",

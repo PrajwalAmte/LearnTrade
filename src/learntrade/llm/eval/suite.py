@@ -29,7 +29,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from leantrade.llm.router import LLMRouter
+    from learntrade.llm.router import LLMRouter
 
 logger = logging.getLogger(__name__)
 
@@ -139,8 +139,8 @@ class EvalSuite:
         cases: list[EvalCase] | None = None,
     ) -> list[EvalResult]:
         """Run all eval cases for a task. Returns one EvalResult per case."""
-        from leantrade.llm.extraction.prompts import EXTRACT_SYSTEM_V1, EXTRACT_USER_V1
-        from leantrade.llm.extraction.extractor import _EXTRACTION_SCHEMA
+        from learntrade.llm.extraction.prompts import EXTRACT_SYSTEM_V1, EXTRACT_USER_V1
+        from learntrade.llm.extraction.extractor import _EXTRACTION_SCHEMA
 
         active = [c for c in (cases or EVAL_CASES) if c.task == task]
         model = self._router._get_client(task).model
@@ -169,7 +169,7 @@ class EvalSuite:
                 # Estimate cost
                 usage = response.get("usage", {})
                 tokens = usage.get("prompt_tokens", 0) + usage.get("completion_tokens", 0)
-                from leantrade.llm.router import _COST_PER_1K
+                from learntrade.llm.router import _COST_PER_1K
                 cost = _COST_PER_1K.get(model, _COST_PER_1K["default"]) * tokens / 1000
 
                 score, details = self._score(case, text)

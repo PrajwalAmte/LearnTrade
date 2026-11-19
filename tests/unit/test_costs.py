@@ -6,9 +6,9 @@ from __future__ import annotations
 
 import pytest
 
-from leantrade.execution.costs import TradeCost, compute_commission, compute_trade_cost
-from leantrade.markets.loader import get_pack
-from leantrade.markets.schema import CommissionConfig, MarketPack
+from learntrade.execution.costs import TradeCost, compute_commission, compute_trade_cost
+from learntrade.markets.loader import get_pack
+from learntrade.markets.schema import CommissionConfig, MarketPack
 
 
 def test_zero_commission():

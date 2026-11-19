@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from leantrade.core.types import InstrumentId, Observation
-from leantrade.data.corpus.news import (
+from learntrade.core.types import InstrumentId, Observation
+from learntrade.data.corpus.news import (
     ingest_news, recent_headlines, tag_events, evidence_summary_for,
 )
-from leantrade.data.corpus.store import CorpusStore
-from leantrade.data.providers.base import FetchRequest
-from leantrade.data.providers.news import RSSNewsProvider, parse_rss
-from leantrade.data.store.pit import PITStore
-from leantrade.llm.extraction.schemas import ExtractedEvidence
+from learntrade.data.corpus.store import CorpusStore
+from learntrade.data.providers.base import FetchRequest
+from learntrade.data.providers.news import RSSNewsProvider, parse_rss
+from learntrade.data.store.pit import PITStore
+from learntrade.llm.extraction.schemas import ExtractedEvidence
 
 UTC = timezone.utc
 

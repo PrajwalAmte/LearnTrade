@@ -2,10 +2,10 @@
 LearnTrade CLI.
 
 Usage:
-    leantrade <command> [options]
+    learntrade <command> [options]
 
-All commands that need a workspace first run `leantrade init` (or the browser
-wizard at `leantrade serve --open`) to create config/leantrade.toml.
+All commands that need a workspace first run `learntrade init` (or the browser
+wizard at `learntrade serve --open`) to create config/learntrade.toml.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from rich.console import Console
 from rich.logging import RichHandler
 
 app = typer.Typer(
-    name="leantrade",
+    name="learntrade",
     help="Local-first trading intelligence engine.",
     no_args_is_help=True,
     pretty_exceptions_enable=False,
@@ -35,9 +35,9 @@ console = Console()
 # backtest, analyze). Keeping one registry means the artifact path a loader
 # looks for always matches the path `train` actually wrote.
 _MODEL_REGISTRY: dict[str, str] = {
-    "ridge": "leantrade.quant.models.ridge:RidgeReturnModel",
-    "lgbm": "leantrade.quant.models.lgbm_return:LGBMReturnModel",
-    "lgbm_rank": "leantrade.quant.models.lgbm_rank:LGBMRankModel",
+    "ridge": "learntrade.quant.models.ridge:RidgeReturnModel",
+    "lgbm": "learntrade.quant.models.lgbm_return:LGBMReturnModel",
+    "lgbm_rank": "learntrade.quant.models.lgbm_rank:LGBMRankModel",
 }
 
 
@@ -78,7 +78,7 @@ def serve(
         threading.Timer(1.5, lambda: webbrowser.open(f"http://{host}:{port}")).start()
 
     uvicorn.run(
-        "leantrade.api.app:app",
+        "learntrade.api.app:app",
         host=host,
         port=port,
         log_level=log_level,
@@ -96,9 +96,9 @@ def demo(
     days: int = typer.Option(600, help="Trading days of fake history to create"),
 ) -> None:
     """Create clearly-labelled FAKE market data (50 made-up stocks) to try the tool offline."""
-    from leantrade.core.config import get_config
-    from leantrade.data.store.pit import PITStore
-    from leantrade.setup.demo import generate_demo_data
+    from learntrade.core.config import get_config
+    from learntrade.data.store.pit import PITStore
+    from learntrade.setup.demo import generate_demo_data
 
     _setup_logging()
     cfg = get_config()
@@ -114,10 +114,10 @@ def demo(
 
 @app.command()
 def init(
-    config_dir: Path = typer.Option(Path("config"), help="Directory for leantrade.toml"),
+    config_dir: Path = typer.Option(Path("config"), help="Directory for learntrade.toml"),
 ) -> None:
     """Interactive workspace initialisation wizard (terminal version)."""
-    from leantrade.setup.wizard import run_terminal_wizard
+    from learntrade.setup.wizard import run_terminal_wizard
     run_terminal_wizard(config_dir)
 
 
@@ -142,9 +142,9 @@ def data_pull(
     """Pull prices, fundamentals, macro and filings from configured providers."""
     import json
     from datetime import date
-    from leantrade.core.config import get_config
-    from leantrade.data.engine import DataEngine
-    from leantrade.data.store.pit import PITStore
+    from learntrade.core.config import get_config
+    from learntrade.data.engine import DataEngine
+    from learntrade.data.store.pit import PITStore
 
     _setup_logging()
     cfg = get_config()
@@ -181,9 +181,9 @@ def data_check(
     since: str = typer.Option("2015-01-01", help="Start date for bar check YYYY-MM-DD"),
 ) -> None:
     """Run point-in-time leakage, gap and quality checks."""
-    from leantrade.core.config import get_config
-    from leantrade.data.quality.checks import run_all_checks
-    from leantrade.data.store.pit import PITStore
+    from learntrade.core.config import get_config
+    from learntrade.data.quality.checks import run_all_checks
+    from learntrade.data.store.pit import PITStore
 
     _setup_logging()
     cfg = get_config()
@@ -229,11 +229,13 @@ def train(
     since: str = typer.Option("2015-01-01", help="Training data start date YYYY-MM-DD"),
     model: str = typer.Option("ridge", help="Model type: ridge | lgbm | lgbm_rank"),
     n_splits: int = typer.Option(5, help="Walk-forward CV folds"),
+    holdout_days: int = typer.Option(
+        120, help="Most recent trading days reserved as a final untouched test (0 = none)"),
 ) -> None:
     """Walk-forward train and calibrate a quant model."""
-    from leantrade.core.config import get_config
-    from leantrade.data.store.pit import PITStore
-    from leantrade.quant.trainer import QuantTrainer
+    from learntrade.core.config import get_config
+    from learntrade.data.store.pit import PITStore
+    from learntrade.quant.trainer import QuantTrainer
 
     _setup_logging()
     cfg = get_config()
@@ -259,6 +261,7 @@ def train(
                     model_class=model_cls,
                     n_splits=n_splits,
                     artifacts_dir=cfg.workspace.data_dir / "models",
+                    holdout_days=holdout_days,
                 )
                 result = trainer.train(mic, since_dt, now)
                 console.print(f"[green]✓[/] {result.summary()}")
@@ -268,8 +271,21 @@ def train(
                         f"AUC={result.calibration.roc_auc:.4f} "
                         f"dirAcc={result.calibration.directional_accuracy:.2%}"
                     )
+                from learntrade.quant.reliability import assess_reliability
+                rel = assess_reliability(result.report)
+                h = result.report.get("holdout")
+                if h:
+                    console.print(
+                        f"  Final untouched test ({h['start']} → {h['end']}, {h['n_days']} days): "
+                        f"rank IC {h['rank_ic_mean']:+.3f}, 95% range "
+                        f"[{h['rank_ic_ci'][0]:+.3f}, {h['rank_ic_ci'][1]:+.3f}]"
+                    )
+                console.print(f"  [bold]Verdict:[/] {rel['headline']}")
+                for why in rel["reasons"]:
+                    console.print(f"   - {why}")
             except Exception as exc:
-                console.print(f"[red]✗ {mic}: {exc}[/]")
+                from learntrade.core.errors import friendly_error
+                console.print(f"[red]✗ {mic}: {friendly_error(exc)}[/]")
 
 
 # ---------------------------------------------------------------------------
@@ -300,7 +316,7 @@ def _load_trained_model(
 ) -> tuple[Any, Any]:
     """
     Load a previously trained model and its (optional) calibrator.
-    Returns (None, None) if `leantrade train` hasn't been run for this
+    Returns (None, None) if `learntrade train` hasn't been run for this
     market/horizon/model combination yet — callers decide how to degrade.
     """
     model_cls = _require_model_class(model_name)
@@ -308,9 +324,17 @@ def _load_trained_model(
     if not model_path.exists():
         return None, None
     model = model_cls.load(str(model_path))
+    from learntrade.features.price_volume import FEATURE_SET_VERSION
+    if getattr(model, "feature_set_version", FEATURE_SET_VERSION) != FEATURE_SET_VERSION:
+        # Trained on an older feature definition; its inputs would not line up. Treat as
+        # "not trained" so callers fall back and the UI asks for an update.
+        logging.getLogger(__name__).warning(
+            "Model %s was trained on features %r, current is %r - re-train with `learntrade train`.",
+            model_path.name, model.feature_set_version, FEATURE_SET_VERSION)
+        return None, None
     calibrator = None
     if cal_path.exists():
-        from leantrade.quant.calibration.isotonic import IsotonicCalibrator
+        from learntrade.quant.calibration.isotonic import IsotonicCalibrator
         calibrator = IsotonicCalibrator.load(str(cal_path))
     return model, calibrator
 
@@ -341,8 +365,8 @@ def _generate_current_forecasts(
     p_positive=0.5 and made-up quantiles, regardless of whether a model had
     ever been trained).
     """
-    from leantrade.core.types import Forecast, ForecastQuantiles, InstrumentId
-    from leantrade.features.price_volume import PriceVolumeFeatureSet
+    from learntrade.core.types import Forecast, ForecastQuantiles, InstrumentId
+    from learntrade.features.price_volume import PriceVolumeFeatureSet
 
     now = datetime.now(tz=timezone.utc)
     instruments = store.get_universe(market, now)
@@ -403,10 +427,11 @@ def _forecast_outside_universe(
     cross-section, so a lone stock has no meaningful score. For those we say so.
     """
     from datetime import timedelta
-    from leantrade.core.config import get_secrets
-    from leantrade.data.providers.base import FetchRequest
-    from leantrade.data.providers.registry import ProviderRegistry
-    from leantrade.features.price_volume import PriceVolumeFeatureSet
+    from learntrade.core.config import get_secrets
+    from learntrade.data.providers.base import FetchRequest
+    from learntrade.data.providers.registry import ProviderRegistry
+    import polars as pl
+    from learntrade.features.price_volume import PriceVolumeFeatureSet
 
     market = iid.mic
     model, calibrator = _load_trained_model(cfg, market, horizon, model_name)
@@ -437,7 +462,11 @@ def _forecast_outside_universe(
     # timestamp from before the fetch would (correctly) hide them as 'future' data.
     now = datetime.now(tz=timezone.utc)
     fs = PriceVolumeFeatureSet()
-    feats = fs.compute([iid], now, store)
+    # Features are normalised across stocks, so score the new stock alongside the universe
+    # (its row is then read off) instead of in isolation.
+    members = store.get_universe(market, now)
+    feats = fs.compute(list(members) + [iid], now, store)
+    feats = feats.filter(pl.col("instrument_id") == str(iid)) if not feats.is_empty() else feats
     if feats.is_empty():
         return None, {}, f"Could not compute indicators for {iid} (too little history)."
     cols = [c for c in fs.feature_names if c in feats.columns]
@@ -466,13 +495,13 @@ def backtest(
     engine: str = typer.Option("event_driven", help="Engine: event_driven | vectorised"),
 ) -> None:
     """Run a backtest and write a report to research/reports/."""
-    from leantrade.backtest.engine import BacktestConfig, EventDrivenBacktest, VectorisedBacktest
-    from leantrade.backtest.report import generate_report
-    from leantrade.core.config import get_config
-    from leantrade.data.store.pit import PITStore
-    from leantrade.features.price_volume import PriceVolumeFeatureSet
-    from leantrade.markets import get_pack
-    from leantrade.quant.targets.labels import compute_forward_returns, merge_features_labels
+    from learntrade.backtest.engine import BacktestConfig, EventDrivenBacktest, VectorisedBacktest
+    from learntrade.backtest.report import generate_report
+    from learntrade.core.config import get_config
+    from learntrade.data.store.pit import PITStore
+    from learntrade.features.price_volume import PriceVolumeFeatureSet
+    from learntrade.markets import get_pack
+    from learntrade.quant.targets.labels import compute_forward_returns, merge_features_labels
 
     _setup_logging()
     cfg = get_config()
@@ -482,21 +511,21 @@ def backtest(
     with PITStore(cfg.workspace.data_dir) as store:
         instruments = store.get_universe(market, now)
         if not instruments:
-            console.print(f"[red]No universe for {market}. Run `leantrade universe import`.[/]")
+            console.print(f"[red]No universe for {market}. Run `learntrade universe import`.[/]")
             raise typer.Exit(1)
 
         feature_set = PriceVolumeFeatureSet()
         bars = store.query_bars(instruments, as_of=now, since=since_dt)
         if bars.is_empty():
-            console.print("[red]No bars found. Run `leantrade data pull` first.[/]")
+            console.print("[red]No bars found. Run `learntrade data pull` first.[/]")
             raise typer.Exit(1)
 
-        from leantrade.quant.targets.horizon import get_horizon
+        from learntrade.quant.targets.horizon import get_horizon
         import polars as pl
         h = get_horizon(horizon)
         features = feature_set.compute_history(instruments, since_dt, now, store)
         if features.is_empty():
-            console.print("[red]No features. Run `leantrade data pull` first.[/]")
+            console.print("[red]No features. Run `learntrade data pull` first.[/]")
             raise typer.Exit(1)
 
         trained_model, calibrator = _load_trained_model(cfg, market, horizon, model)
@@ -505,7 +534,7 @@ def backtest(
             # Use the TRAINED model's forecast as the signal, not a raw
             # feature column — this is what the model/calibration/backtest
             # pipeline is actually supposed to be testing.
-            from leantrade.core.types import InstrumentId
+            from learntrade.core.types import InstrumentId
             feat_cols = [c for c in feature_set.feature_names if c in features.columns]
             dates_list = features["event_time"].to_list()
             raw_iids = features["instrument_id"].to_list()
@@ -539,12 +568,12 @@ def backtest(
         if trained_model is None:
             console.print(
                 f"[yellow]Using a raw momentum signal (ret_20d), not a trained model. "
-                f"Run `leantrade train --model {model} --market {market} "
+                f"Run `learntrade train --model {model} --market {market} "
                 f"--horizon {horizon}` first for a real signal.[/]"
             )
             labels = compute_forward_returns(bars, h.forward_days)
             if labels.is_empty():
-                console.print("[red]No labels could be computed either. Run `leantrade data pull` first.[/]")
+                console.print("[red]No labels could be computed either. Run `learntrade data pull` first.[/]")
                 raise typer.Exit(1)
             merged = merge_features_labels(features, labels)
             signal_col = "ret_20d" if "ret_20d" in merged.columns else merged.columns[2]
@@ -556,7 +585,7 @@ def backtest(
             signal_source = "raw momentum fallback (no trained model)"
 
         if signals.is_empty():
-            console.print("[red]No signals produced. Run `leantrade train` first.[/]")
+            console.print("[red]No signals produced. Run `learntrade train` first.[/]")
             raise typer.Exit(1)
 
         pack = get_pack(market)
@@ -564,6 +593,8 @@ def backtest(
             pit_level="none",
             survivorship_note="No survivorship check applied",
             engine=engine,
+            rebalance_every=h.forward_days,   # trade on the forecast horizon, not daily
+            ic_horizon=h.forward_days,        # score IC over the same horizon as the forecast
         )
 
         with console.status(f"Running {engine} backtest…"):
@@ -588,6 +619,12 @@ def backtest(
         if ic:
             console.print(f"  IC={ic.get('ic_mean', float('nan')):.4f}  t={ic.get('ic_tstat', float('nan')):.2f}")
         console.print(f"  PIT level: [yellow]{result.pit_level}[/]")
+        if trained_model is not None:
+            console.print(
+                "  [yellow]In-sample:[/] this model was trained on the same period it is being "
+                "tested on, so these numbers flatter it. For an honest out-of-sample test run "
+                "`learntrade evaluate`."
+            )
         console.print(f"  Report: [cyan]research/reports/{report.run_id}_{market}_{horizon}.*[/]")
 
 
@@ -604,8 +641,8 @@ def rank(
     model: str = typer.Option("ridge", help="Model: ridge | lgbm | lgbm_rank"),
 ) -> None:
     """Show today's ranked opportunities for a market."""
-    from leantrade.core.config import get_config
-    from leantrade.data.store.pit import PITStore
+    from learntrade.core.config import get_config
+    from learntrade.data.store.pit import PITStore
 
     _setup_logging()
     cfg = get_config()
@@ -614,17 +651,17 @@ def rank(
         forecasts, source = _generate_current_forecasts(cfg, store, market, horizon, model)
 
     if source == "no_universe":
-        console.print(f"[red]No universe for {market}. Run `leantrade universe import`.[/]")
+        console.print(f"[red]No universe for {market}. Run `learntrade universe import`.[/]")
         raise typer.Exit(1)
     if source == "no_features":
-        console.print("[red]No features. Run `leantrade data pull` first.[/]")
+        console.print("[red]No features. Run `learntrade data pull` first.[/]")
         raise typer.Exit(1)
     if not forecasts:
         console.print("[red]No forecasts produced.[/]")
         raise typer.Exit(1)
     if source.startswith("raw momentum"):
         console.print(
-            f"[yellow]{source} — run `leantrade train --model {model} "
+            f"[yellow]{source} — run `learntrade train --model {model} "
             f"--market {market} --horizon {horizon}` for calibrated forecasts.[/]"
         )
 
@@ -639,6 +676,48 @@ def rank(
 
 
 # ---------------------------------------------------------------------------
+# evaluate
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def evaluate(
+    market: str = typer.Option("XNYS", help="MIC code"),
+    horizon: str = typer.Option("swing_20d", help="Horizon"),
+    since: str = typer.Option("2015-01-01", help="Data start date YYYY-MM-DD"),
+    holdout_days: int = typer.Option(120, help="Most recent trading days kept untouched for testing"),
+    top_n: int = typer.Option(10, help="Stocks held in the simulated portfolio"),
+    engine: str = typer.Option("vectorised", help="Engine: vectorised | event_driven"),
+) -> None:
+    """Fair, out-of-sample comparison of momentum, ridge, lgbm and lgbm_rank."""
+    from learntrade.backtest.evaluation import run_evaluation, to_markdown
+    from learntrade.core.config import get_config
+    from learntrade.data.store.pit import PITStore
+
+    _setup_logging("WARNING")
+    cfg = get_config()
+    since_dt = datetime.strptime(since, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    models = {name: _require_model_class(name) for name in ("ridge", "lgbm", "lgbm_rank")}
+    with PITStore(cfg.workspace.data_dir) as store:
+        with console.status("Fitting on the development period and testing on the untouched period…"):
+            res = run_evaluation(store, market, horizon, since_dt, holdout_days, models,
+                                 top_n=top_n, engine=engine)
+    if not res.candidates:
+        console.print("[red]Nothing could be evaluated.[/]")
+        for n in res.notes:
+            console.print(f"  - {n}")
+        raise typer.Exit(1)
+    md = to_markdown(res)
+    out_dir = Path("research/reports")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
+    path = out_dir / f"{stamp}_{market}_{horizon}_evaluation.md"
+    path.write_text(md)
+    console.print(md)
+    console.print(f"Saved: [cyan]{path}[/]")
+
+
+# ---------------------------------------------------------------------------
 # analyze
 # ---------------------------------------------------------------------------
 
@@ -650,9 +729,9 @@ def analyze(
     model: str = typer.Option("ridge", help="Model: ridge | lgbm | lgbm_rank"),
 ) -> None:
     """Generate a research report for one instrument."""
-    from leantrade.core.config import get_config
-    from leantrade.core.types import InstrumentId
-    from leantrade.data.store.pit import PITStore
+    from learntrade.core.config import get_config
+    from learntrade.core.types import InstrumentId
+    from learntrade.data.store.pit import PITStore
 
     _setup_logging()
     cfg = get_config()
@@ -668,7 +747,7 @@ def analyze(
         fc = next((f for f in forecasts if str(f.instrument_id) == str(iid)), None)
 
         if source == "no_universe":
-            console.print(f"[red]No universe for {market}. Run `leantrade universe import`.[/]")
+            console.print(f"[red]No universe for {market}. Run `learntrade universe import`.[/]")
             raise typer.Exit(1)
         outside_ctx: dict[str, Any] = {}
         if fc is None:
@@ -681,7 +760,7 @@ def analyze(
                 raise typer.Exit(1)
             source = f"trained model, single-stock check ({fc.model_id})"
         elif source == "no_features":
-            console.print(f"[red]No data for {instrument}. Run `leantrade data pull`.[/]")
+            console.print(f"[red]No data for {instrument}. Run `learntrade data pull`.[/]")
             raise typer.Exit(1)
 
         console.print(f"\n[bold]{instrument}[/] — {horizon} [dim]({source})[/]")
@@ -700,7 +779,7 @@ def analyze(
         if source.startswith("raw momentum"):
             console.print(
                 f"[yellow]This is an uncalibrated momentum proxy, not a trained "
-                f"model's forecast. Run `leantrade train` first.[/]"
+                f"model's forecast. Run `learntrade train` first.[/]"
             )
 
         headlines, _ = _news_context(cfg, str(iid), datetime.now(tz=timezone.utc))
@@ -711,7 +790,7 @@ def analyze(
         else:
             console.print(
                 "[dim]No news stored for this instrument. "
-                "Run `leantrade news pull` to fetch headlines.[/]"
+                "Run `learntrade news pull` to fetch headlines.[/]"
             )
 
         thesis = None
@@ -720,10 +799,10 @@ def analyze(
         llm_cost = 0.0
         if cfg.llm.enabled:
             import asyncio
-            from leantrade.features.price_volume import PriceVolumeFeatureSet
-            from leantrade.llm.research.fact_sheet import build_fact_sheet
-            from leantrade.llm.research.orchestrator import ResearchOrchestrator
-            from leantrade.llm.router import LLMRouter
+            from learntrade.features.price_volume import PriceVolumeFeatureSet
+            from learntrade.llm.research.fact_sheet import build_fact_sheet
+            from learntrade.llm.research.orchestrator import ResearchOrchestrator
+            from learntrade.llm.router import LLMRouter
             try:
                 router = LLMRouter()
                 feat_row_df = PriceVolumeFeatureSet().compute([iid], datetime.now(tz=timezone.utc), store)
@@ -749,8 +828,8 @@ def analyze(
                 "showing the quant forecast only.[/]"
             )
 
-        from leantrade.attribution.store import AttributionStore
-        from leantrade.core.types import DecisionRecord, ForecastAttribution
+        from learntrade.attribution.store import AttributionStore
+        from learntrade.core.types import DecisionRecord, ForecastAttribution
         now = datetime.now(tz=timezone.utc)
         record = DecisionRecord(
             decision_id=f"{now.isoformat()}/{iid}/{horizon}/analyze",
@@ -778,8 +857,8 @@ def _corpus_path(cfg: Any) -> Path:
 
 def _news_context(cfg: Any, instrument_id: str, as_of: datetime) -> tuple[list[str], dict[str, Any]]:
     """Headlines (+ event tags) and averaged LLM evidence for one instrument, PIT at ``as_of``."""
-    from leantrade.data.corpus.news import evidence_summary_for, recent_headlines, tag_events
-    from leantrade.data.corpus.store import CorpusStore
+    from learntrade.data.corpus.news import evidence_summary_for, recent_headlines, tag_events
+    from learntrade.data.corpus.store import CorpusStore
 
     path = _corpus_path(cfg)
     if not path.exists():
@@ -801,11 +880,11 @@ def news_pull(
 ) -> None:
     """Fetch headlines for the universe and store them (point-in-time)."""
     from datetime import timedelta
-    from leantrade.core.config import get_config
-    from leantrade.data.corpus.news import ingest_news
-    from leantrade.data.corpus.store import CorpusStore
-    from leantrade.data.engine import DataEngine
-    from leantrade.data.store.pit import PITStore
+    from learntrade.core.config import get_config
+    from learntrade.data.corpus.news import ingest_news
+    from learntrade.data.corpus.store import CorpusStore
+    from learntrade.data.engine import DataEngine
+    from learntrade.data.store.pit import PITStore
 
     _setup_logging()
     cfg = get_config()
@@ -824,7 +903,7 @@ def news_pull(
             status = "[green]✓[/]" if r.success else f"[red]✗ {r.error}[/]"
             console.print(f"  {status} {r.provider_id} {r.market}: {r.observations_added} items")
         df = store.query_observations(as_of=now, since=since, kind="news")
-    from leantrade.core.types import InstrumentId, Observation
+    from learntrade.core.types import InstrumentId, Observation
     rows = []
     for r in df.iter_rows(named=True):
         payload = r["payload"]
@@ -849,8 +928,8 @@ def news_extract(
 ) -> None:
     """Run the LLM over new articles once each (cached; needs [llm] enabled)."""
     import asyncio
-    from leantrade.core.config import get_config
-    from leantrade.data.corpus.store import CorpusStore
+    from learntrade.core.config import get_config
+    from learntrade.data.corpus.store import CorpusStore
 
     _setup_logging()
     cfg = get_config()
@@ -860,11 +939,11 @@ def news_extract(
         raise typer.Exit(0)
     path = _corpus_path(cfg)
     if not path.exists():
-        console.print("[red]No corpus yet — run `leantrade news pull` first.[/]")
+        console.print("[red]No corpus yet — run `learntrade news pull` first.[/]")
         raise typer.Exit(1)
 
-    from leantrade.llm.extraction.extractor import EvidenceExtractor
-    from leantrade.llm.router import LLMRouter
+    from learntrade.llm.extraction.extractor import EvidenceExtractor
+    from learntrade.llm.router import LLMRouter
 
     corpus = CorpusStore(path)
     try:
@@ -901,14 +980,14 @@ def news_show(
     days: int = typer.Option(14, help="Look-back window in days"),
 ) -> None:
     """Show stored headlines for one instrument."""
-    from leantrade.core.config import get_config
-    from leantrade.data.corpus.news import recent_headlines
-    from leantrade.data.corpus.store import CorpusStore
+    from learntrade.core.config import get_config
+    from learntrade.data.corpus.news import recent_headlines
+    from learntrade.data.corpus.store import CorpusStore
 
     cfg = get_config()
     path = _corpus_path(cfg)
     if not path.exists():
-        console.print("[red]No corpus yet — run `leantrade news pull` first.[/]")
+        console.print("[red]No corpus yet — run `learntrade news pull` first.[/]")
         raise typer.Exit(1)
     corpus = CorpusStore(path)
     try:
@@ -937,7 +1016,7 @@ def portfolio_import(
     mic: str = typer.Option("XNYS", help="Exchange MIC for the holdings"),
 ) -> None:
     """Import holdings from a broker-exported CSV / XLSX file."""
-    from leantrade.execution.brokers.csv_import import CsvImportAdapter
+    from learntrade.execution.brokers.csv_import import CsvImportAdapter
     adapter = CsvImportAdapter(file, mic)
     holdings = adapter.holdings()
     console.print(f"Imported [bold]{len(holdings)}[/] holdings from {file}")
@@ -959,15 +1038,15 @@ def rebalance(
     model: str = typer.Option("ridge", help="Model: ridge | lgbm | lgbm_rank"),
 ) -> None:
     """Propose (or execute) a portfolio rebalance."""
-    from leantrade.attribution.store import AttributionStore
-    from leantrade.core.config import get_config
-    from leantrade.core.types import DecisionRecord, ForecastAttribution
-    from leantrade.data.store.pit import PITStore
-    from leantrade.portfolio.allocators import (
+    from learntrade.attribution.store import AttributionStore
+    from learntrade.core.config import get_config
+    from learntrade.core.types import DecisionRecord, ForecastAttribution
+    from learntrade.data.store.pit import PITStore
+    from learntrade.portfolio.allocators import (
         EqualWeightAllocator, HRPAllocator, InverseVolAllocator,
         MeanVarianceAllocator, RiskParityAllocator,
     )
-    from leantrade.portfolio.constraints import PortfolioConstraints, apply_constraints
+    from learntrade.portfolio.constraints import PortfolioConstraints, apply_constraints
 
     _setup_logging()
     cfg = get_config()
@@ -988,14 +1067,14 @@ def rebalance(
     with PITStore(cfg.workspace.data_dir) as store:
         forecasts, source = _generate_current_forecasts(cfg, store, market, horizon, model)
         if source == "no_universe":
-            console.print(f"[red]No universe for {market}. Run `leantrade universe import`.[/]")
+            console.print(f"[red]No universe for {market}. Run `learntrade universe import`.[/]")
             raise typer.Exit(1)
         if source == "no_features" or not forecasts:
-            console.print("[red]No features/forecasts. Run `leantrade data pull` first.[/]")
+            console.print("[red]No features/forecasts. Run `learntrade data pull` first.[/]")
             raise typer.Exit(1)
         if source.startswith("raw momentum"):
             console.print(
-                f"[yellow]{source} — run `leantrade train --model {model} "
+                f"[yellow]{source} — run `learntrade train --model {model} "
                 f"--market {market} --horizon {horizon}` for calibrated forecasts.[/]"
             )
 
@@ -1033,8 +1112,8 @@ def rebalance(
     # --dry-run. With no broker adapter wired in yet, this will almost
     # always refuse (clearly — not silently) unless the user has
     # deliberately opted into live trading via config + session flag.
-    from leantrade.core.types import InstrumentId, Order
-    from leantrade.execution.live import LiveExecutionError, check_live_gates
+    from learntrade.core.types import InstrumentId, Order
+    from learntrade.execution.live import LiveExecutionError, check_live_gates
     orders = [
         Order(instrument_id=InstrumentId(str(iid)), side="buy", quantity=1, horizon=horizon)
         for iid in weights
@@ -1063,8 +1142,8 @@ def decision_history(
     limit: int = typer.Option(20, help="Number of rows to show"),
 ) -> None:
     """Show the decision attribution history."""
-    from leantrade.attribution.store import AttributionStore
-    from leantrade.core.config import get_config
+    from learntrade.attribution.store import AttributionStore
+    from learntrade.core.config import get_config
 
     _setup_logging()
     cfg = get_config()
@@ -1092,7 +1171,7 @@ app.add_typer(market_app, name="market")
 @market_app.command("list")
 def market_list() -> None:
     """List all available Market Packs."""
-    from leantrade.markets import list_packs
+    from learntrade.markets import list_packs
     packs = list_packs()
     if not packs:
         console.print("No Market Packs found.")
@@ -1107,7 +1186,7 @@ def market_validate(
     all_packs: bool = typer.Option(False, "--all", help="Validate every pack"),
 ) -> None:
     """Validate one or all Market Packs."""
-    from leantrade.markets.validate import validate_all_packs, validate_pack
+    from learntrade.markets.validate import validate_all_packs, validate_pack
 
     _setup_logging()
     if all_packs or mic is None:
@@ -1134,7 +1213,7 @@ def market_new(
 ) -> None:
     """Scaffold a new Market Pack YAML."""
     import shutil
-    from leantrade.markets.loader import _BUILTIN_MARKET_PACKS_DIR
+    from learntrade.markets.loader import _BUILTIN_MARKET_PACKS_DIR
 
     target = Path("markets") / f"{mic.upper()}.yaml"
     if target.exists():
@@ -1150,7 +1229,7 @@ def market_new(
     text = target.read_text()
     text = text.replace("mic: GENERIC", f"mic: {mic.upper()}")
     target.write_text(text)
-    console.print(f"[green]Scaffolded {target}[/] — edit costs and calendar, then run `leantrade market validate {mic.upper()}`")
+    console.print(f"[green]Scaffolded {target}[/] — edit costs and calendar, then run `learntrade market validate {mic.upper()}`")
 
 
 # ---------------------------------------------------------------------------
@@ -1169,13 +1248,13 @@ def llm_eval(
 ) -> None:
     """Run the LLM evaluation suite for a task."""
     import asyncio
-    from leantrade.llm.eval.suite import EvalSuite, EVAL_CASES
-    from leantrade.llm.router import LLMRouter
+    from learntrade.llm.eval.suite import EvalSuite, EVAL_CASES
+    from learntrade.llm.router import LLMRouter
 
     _setup_logging()
     router = LLMRouter()
     if not router.is_enabled:
-        console.print("[red]LLM is disabled. Set [llm] enabled = true in leantrade.toml.[/]")
+        console.print("[red]LLM is disabled. Set [llm] enabled = true in learntrade.toml.[/]")
         raise typer.Exit(1)
 
     suite = EvalSuite(router)
@@ -1190,8 +1269,8 @@ def llm_eval(
 def llm_cache_stats() -> None:
     """Show LLM response cache statistics."""
     from pathlib import Path
-    from leantrade.llm.cache import LLMCache
-    from leantrade.core.config import get_config
+    from learntrade.llm.cache import LLMCache
+    from learntrade.core.config import get_config
 
     _setup_logging()
     cache_path = get_config().workspace.data_dir / "llm_cache.duckdb"
@@ -1218,18 +1297,67 @@ def universe_import(
     file: Path = typer.Argument(help="CSV file with instrument symbols"),
     mic: str = typer.Option(..., help="Exchange MIC code"),
     symbol_column: str = typer.Option("symbol", help="Column name for symbols"),
+    date_column: Optional[str] = typer.Option(
+        None, help="Membership history: each row = 'this symbol was in the index on this date'"),
+    added_column: Optional[str] = typer.Option(
+        None, help="Join dates: each row = 'this symbol joined the index on this date'"),
+    since: Optional[str] = typer.Option(
+        None, help="With --added-column: merge join dates before this date (YYYY-MM-DD)"),
 ) -> None:
-    """Import universe membership from a CSV file."""
-    from leantrade.core.config import get_config
-    from leantrade.data.store.pit import PITStore
-    from leantrade.data.universe import UniverseManager
+    """Import universe membership from a CSV file (a plain list, a history, or join dates)."""
+    from learntrade.core.config import get_config
+    from learntrade.data.store.pit import PITStore
+    from learntrade.data.universe import UniverseManager
 
     _setup_logging()
     cfg = get_config()
     with PITStore(cfg.workspace.data_dir) as store:
         mgr = UniverseManager(store)
-        n = mgr.import_csv(mic.upper(), file, symbol_column=symbol_column)
+        collapse = (datetime.strptime(since, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                    if since else None)
+        n = mgr.import_csv(mic.upper(), file, symbol_column=symbol_column,
+                           date_column=date_column, added_column=added_column,
+                           collapse_before=collapse)
     console.print(f"[green]Imported universe for {mic.upper()}[/] ({n} snapshot(s))")
+
+
+@universe_app.command("fetch-index")
+def universe_fetch_index(
+    index: str = typer.Argument(help="Index name. Built in: SP500"),
+    since: str = typer.Option("2015-01-01", help="Start of your data window YYYY-MM-DD"),
+) -> None:
+    """Download an index's members with their join dates (removes 'joined after winning' bias)."""
+    from learntrade.core.config import get_config
+    from learntrade.data.index_history import fetch_index
+    from learntrade.data.store.pit import PITStore
+    from learntrade.data.universe import UniverseManager, snapshots_from_added_dates
+    from learntrade.core.types import Observation
+
+    _setup_logging()
+    cfg = get_config()
+    try:
+        mic, rows = fetch_index(index)
+    except Exception as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(1) from None
+    floor = datetime.strptime(since, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    snaps = snapshots_from_added_dates({sym: d for sym, d in rows}, floor)
+    obs = [Observation(instrument_id=None, source_id=f"index:{index.upper()}", kind="universe",
+                       event_time=d, available_at=d,
+                       payload={"mic": mic, "members": members}, pit_level="partial")
+           for d, members in snaps]
+    with PITStore(cfg.workspace.data_dir) as store:
+        n = store.ingest(obs)
+    joined_late = sum(1 for _s, d in rows if d and d > floor)
+    console.print(
+        f"[green]Imported {index.upper()} for {mic}[/]: {len(rows)} members, "
+        f"{joined_late} joined after {since}, {n} membership snapshot(s)."
+    )
+    console.print(
+        "[dim]Join dates are applied from now on in training and evaluation. Companies that "
+        "already left the index are not in this list; for those, import a membership history "
+        "CSV with --date-column.[/]"
+    )
 
 
 @universe_app.command("list")
@@ -1238,8 +1366,8 @@ def universe_list(
 ) -> None:
     """List current universe members for a market."""
     from datetime import timezone
-    from leantrade.core.config import get_config
-    from leantrade.data.store.pit import PITStore
+    from learntrade.core.config import get_config
+    from learntrade.data.store.pit import PITStore
 
     _setup_logging()
     cfg = get_config()
@@ -1264,7 +1392,7 @@ def universe_list(
 @app.command()
 def doctor() -> None:
     """Diagnose common installation, data and configuration issues."""
-    from leantrade.setup.doctor import run_doctor
+    from learntrade.setup.doctor import run_doctor
 
     _setup_logging()
     issues = run_doctor()

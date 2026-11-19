@@ -46,8 +46,8 @@ if errorlevel 1 (
     exit /b 1
 )
 
-if "%LEANTRADE_PORT%"=="" set "LEANTRADE_PORT=8787"
-set "URL=http://localhost:%LEANTRADE_PORT%"
+if "%LEARNTRADE_PORT%"=="" set "LEARNTRADE_PORT=8787"
+set "URL=http://localhost:%LEARNTRADE_PORT%"
 
 REM Open the browser only once the server actually answers, instead of
 REM guessing a fixed delay. Runs in its own window so it never blocks the
@@ -56,5 +56,5 @@ start "" /min cmd /c ^
     "for /l %%i in (1,1,60) do (curl -fs %URL%/api/health >nul 2>&1 && start "" "%URL%" && exit /b 0 || timeout /t 1 /nobreak >nul)"
 
 echo Starting server at %URL%
-uv run leantrade serve --port %LEANTRADE_PORT% >> "%LOG_FILE%" 2>&1
+uv run learntrade serve --port %LEARNTRADE_PORT% >> "%LOG_FILE%" 2>&1
 pause

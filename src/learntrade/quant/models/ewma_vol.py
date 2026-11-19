@@ -13,7 +13,7 @@ from typing import Any
 import numpy as np
 import polars as pl
 
-from leantrade.core.types import InstrumentId
+from learntrade.core.types import InstrumentId
 
 
 class EWMAVolModel:

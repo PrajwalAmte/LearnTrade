@@ -12,9 +12,9 @@ import numpy as np
 import polars as pl
 import pytest
 
-from leantrade.core.types import InstrumentId
-from leantrade.quant.models.ewma_vol import EWMAVolModel
-from leantrade.quant.models.ridge import RidgeReturnModel
+from learntrade.core.types import InstrumentId
+from learntrade.quant.models.ewma_vol import EWMAVolModel
+from learntrade.quant.models.ridge import RidgeReturnModel
 
 UTC = timezone.utc
 

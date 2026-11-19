@@ -1,10 +1,10 @@
-# LeanTrade
+# LearnTrade
 
 **A free tool that looks at a list of stocks and tells you which ones look relatively stronger or weaker right now, and how sure it is.**
 
 It runs on your own computer. It does not buy or sell anything. It does not need an account, a subscription or a credit card.
 
-> **Please read this first.** LeanTrade gives information, not financial advice. Nobody can predict markets reliably, and this tool can be wrong, sometimes for long stretches. Never invest money you cannot afford to lose.
+*LearnTrade gives information, not financial advice.*
 
 ---
 
@@ -17,12 +17,13 @@ It runs on your own computer. It does not buy or sell anything. It does not need
 
 It works for **any country's stock market** that has a market profile (India, USA, UK, Germany, Japan, Australia and more are included).
 
-## What it does not do
+## What it is not
 
-- It does **not** place trades or touch your broker account.
-- It does **not** promise profit. A ranking is a hint, not a guarantee.
-- It does **not** read social media. News is headlines only.
-- It does **not** send your data anywhere. Everything stays in the `data` folder on your computer.
+- It does not trade for you or touch your broker account. You stay in control.
+- It does not read social media. News is headlines only.
+- It does not send your data anywhere. Everything stays in the `data` folder on your computer.
+
+**What is finished and what is only planned?** See [docs/STATUS.md](docs/STATUS.md). It lists every feature as tested, experimental or not built yet, so you are never promised something that does not exist.
 
 ---
 
@@ -38,8 +39,8 @@ On the project's GitHub page, click the green **Code** button, then **Download Z
 
 | Your computer | Double-click this file | If it says "blocked" or "unknown developer" |
 |---|---|---|
-| Windows | `Start LeanTrade.bat` | Click **More info**, then **Run anyway** |
-| Mac | `Start LeanTrade.command` | Right-click the file, choose **Open**, then **Open** again (only the first time) |
+| Windows | `Start LearnTrade.bat` | Click **More info**, then **Run anyway** |
+| Mac | `Start LearnTrade.command` | Right-click the file, choose **Open**, then **Open** again (only the first time) |
 | Linux | `start.sh` | Right-click, Properties, allow running as a program |
 
 The first start takes a few minutes while it sets itself up. You will see a window with text scrolling; that is normal. Later starts take a few seconds.
@@ -48,7 +49,7 @@ The first start takes a few minutes while it sets itself up. You will see a wind
 
 If it does not, type `http://localhost:8787` in your browser's address bar.
 
-To stop LeanTrade, close the black starter window.
+To stop LearnTrade, close the black starter window.
 
 ---
 
@@ -63,6 +64,8 @@ To stop LeanTrade, close the black starter window.
 2. Type the stock symbols you care about, at least 8, separated by commas. Use the short code, like `RELIANCE, TCS, INFY, HDFCBANK` for India or `AAPL, MSFT, GOOGL, AMZN` for the USA.
 3. Click **Download data and set up** and wait. The first time takes a few minutes (it downloads three years of prices and trains itself).
 
+In the USA you can skip typing: click **Use the whole S&P 500**. It loads all ~500 companies together with the date each one joined the index (a few minutes longer the first time).
+
 ### The main screen
 
 A ranked list of your stocks. Click any stock to see its details and recent news.
@@ -75,24 +78,49 @@ A ranked list of your stocks. Click any stock to see its details and recent news
 | **Typical range** | Where most outcomes are expected to land. It is usually wide. That is the honest picture. |
 | **Looking ahead** | Choose about 1 week, 1 month or 3 months. |
 
+### Check any single stock
+
+Not in your list? Type its short symbol into **Check any single stock**. LearnTrade fetches its prices and shows where it would rank compared with your list (for example "would rank 12 of 31").
+
+### How well it has worked
+
+Above the list, a box says how the model did when it was tested on past data, in plain words:
+
+| Label | What it means |
+|---|---|
+| **Looks useful** | The ranking beat chance in testing, and the edge is bigger than the noise |
+| **Early signal** | The ranking leans the right way; more history will show how solid it is |
+| **Not working here** | For this group of stocks the ranking did not beat chance. More stocks or a longer history often helps |
+| **Quick estimate** | No trained model yet; the order reflects recent price moves. Tap **Update data** to train one |
+
+Open **Why, and the numbers behind it** to see the details. The most useful number is the **final untouched test**: the most recent months are kept aside and never used for learning, so it shows how the model did on data it had not seen.
+
+### Stock lists and history
+
+When a stock list is today's list, companies that dropped out of an index in the past are missing from the history, which can make old results look a little rosier than they were. LearnTrade handles this for you where it can:
+
+- **S&P 500:** the **Use the whole S&P 500** button (or `uv run leantrade universe fetch-index SP500`) loads every member with its join date, so a stock is only used from the day it actually joined.
+- **Any market:** if you have a file of index membership over time, import it with `uv run leantrade universe import file.csv --mic XNSE --date-column date` (one row per date and symbol), or with `--added-column` if it lists the date each stock joined. LearnTrade then uses "who was in the index on that date" for training and testing.
+- The box above the list tells you which basis was used.
+
 ### Keeping it fresh
 
 Click **Update data** now and then (for example once a week). It fetches the latest prices and news and re-trains. The demo cannot be updated because its data is made up.
 
 ---
 
-## How to read the results sensibly
+## Getting the most from it
 
-- **Compare, don't obey.** The ranking shows which stocks look stronger than the others in your list. It does not say you should buy.
-- **Watch for the yellow warnings.** If the tool says it did not find a reliable pattern, believe it. Every stock then gets nearly the same chance and the order means very little. Adding more stocks to your list usually helps.
-- **A confident-looking number is not a certain one.** Look at the "typical range" too.
-- **Use it as one input** next to your own research and your own risk limits.
+- **Use it to compare.** The ranking shows which stocks look stronger than the others in your list, which is a good way to build a shortlist.
+- **Use 30 or more stocks.** Comparisons get steadier with a bigger list, and the "How well it has worked" box will tell you when it is on solid ground.
+- **Look at the typical range** as well as the outlook. It shows how much a stock can swing either way.
+- **Refresh weekly.** **Update data** keeps prices and news current and re-trains the model.
 
 ---
 
 ## News
 
-When you set up real stocks, LeanTrade also fetches recent headlines for each one (free sources). They appear on each stock's page. Headlines mentioning earnings, dividends or similar events are flagged for extra attention in the optional AI research step. News is not yet part of the numbers behind the ranking; it is there to give you context.
+When you set up real stocks, LearnTrade also fetches recent headlines for each one (free sources). They appear on each stock's page. Headlines mentioning earnings, dividends or similar events are flagged for extra attention in the optional AI research step. News is not yet part of the numbers behind the ranking; it is there to give you context.
 
 ---
 
@@ -102,10 +130,11 @@ When you set up real stocks, LeanTrade also fetches recent headlines for each on
 |---|---|
 | The starter window closes instantly | Open the `logs` folder and read `launcher.log`, or ask for help (see below) and include that file |
 | The browser did not open | Type `http://localhost:8787` in the address bar |
-| It says the port is already in use | LeanTrade may already be running in another window. Close that one, or restart your computer |
+| It says the port is already in use | LearnTrade may already be running in another window. Close that one, or restart your computer |
 | "Download data" fails | Check your internet connection and that the symbols are correct. Free data sources sometimes limit how fast you can download, so try again in a few minutes |
 | It says it is busy updating | Wait a minute and refresh the page. It does one job at a time |
 | A stock is missing | The symbol may be wrong. Check it on your broker's app or a finance website |
+| Mac: "LightGBM needs the OpenMP library" | Open Terminal and run `brew install libomp`. The default model works without it |
 
 For a health check, open a terminal in the folder and run `uv run leantrade doctor`. It explains any problems in plain language.
 
@@ -126,7 +155,7 @@ For a health check, open a terminal in the folder and run `uv run leantrade doct
 | Ticker / symbol | The short code of a company on an exchange, like `TCS` |
 | Market / exchange | The place where stocks trade, like the NSE in India |
 | Benchmark | A reference index (such as Nifty 50). "Outlook vs. the market" is measured against it |
-| Probability | A chance between 0% and 100%. It is not a promise |
+| Probability | A chance between 0% and 100% |
 | Training | The tool studying past prices to learn patterns |
 
 ---
@@ -139,6 +168,7 @@ The full technical documentation (architecture, command-line usage, adding a new
 uv run leantrade --help          # all commands
 uv run leantrade news pull       # fetch headlines
 uv run leantrade rank            # ranked list in the terminal
+uv run leantrade evaluate --market XNSE   # fair, out-of-sample comparison of all models
 uv run pytest                    # run the test suite
 ```
 

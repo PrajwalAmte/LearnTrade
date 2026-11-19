@@ -1,8 +1,8 @@
 """
 FastAPI application factory.
 
-The UI is served from ``api/static/`` (pre-built React bundle committed by CI).
-No Node is required at runtime.
+The UI is a single static page, ``api/static/index.html`` (plain HTML/CSS/JS, no build
+step and no Node required). Its data comes from ``routes/workspace.py``.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from leantrade.api.routes import data, portfolio, research, setup, system, workspace
+from learntrade.api.routes import portfolio, setup, system, workspace
 
 
 def create_app() -> FastAPI:
@@ -36,9 +36,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(system.router,    prefix="/api")
-    app.include_router(data.router,      prefix="/api/data")
     app.include_router(portfolio.router, prefix="/api/portfolio")
-    app.include_router(research.router,  prefix="/api/research")
     app.include_router(setup.router,     prefix="/api/setup")
     app.include_router(workspace.router, prefix="/api/app")
 

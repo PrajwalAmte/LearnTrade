@@ -11,9 +11,9 @@ import numpy as np
 import polars as pl
 import pytest
 
-from leantrade.backtest.engine import BacktestConfig, VectorisedBacktest
-from leantrade.backtest.report import generate_report
-from leantrade.markets.loader import get_pack
+from learntrade.backtest.engine import BacktestConfig, VectorisedBacktest
+from learntrade.backtest.report import generate_report
+from learntrade.markets.loader import get_pack
 
 UTC = timezone.utc
 

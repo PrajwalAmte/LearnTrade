@@ -7,8 +7,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from leantrade.quant.calibration.isotonic import IsotonicCalibrator
-from leantrade.quant.calibration.metrics import compute_calibration_report
+from learntrade.quant.calibration.isotonic import IsotonicCalibrator
+from learntrade.quant.calibration.metrics import compute_calibration_report
 
 
 def _make_data(n: int = 500, seed: int = 42) -> tuple[np.ndarray, np.ndarray]:

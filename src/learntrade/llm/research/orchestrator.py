@@ -24,11 +24,11 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from leantrade.core.types import Forecast
-    from leantrade.llm.router import LLMRouter
+    from learntrade.core.types import Forecast
+    from learntrade.llm.router import LLMRouter
 
-from leantrade.llm.research.fact_sheet import FactSheet
-from leantrade.llm.research.roles import ROLES, ResearchRoleId
+from learntrade.llm.research.fact_sheet import FactSheet
+from learntrade.llm.research.roles import ROLES, ResearchRoleId
 
 logger = logging.getLogger(__name__)
 
@@ -235,7 +235,7 @@ class ResearchOrchestrator:
         outputs: list[AnalystOutput],
         cfg: OrchestratorConfig,
     ) -> dict[str, Any]:
-        from leantrade.llm.research.roles import ROLES
+        from learntrade.llm.research.roles import ROLES
 
         analyses_text = "\n".join(
             f"[{o.role_id}]: {o.summary}" for o in outputs

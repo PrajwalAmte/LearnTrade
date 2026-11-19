@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
-from leantrade.execution.simulator.state import PortfolioState
+from learntrade.execution.simulator.state import PortfolioState
 
 logger = logging.getLogger(__name__)
 
@@ -97,8 +97,8 @@ class CorporateActionProcessor:
     ) -> str:
         pos = state.positions[iid]
         new_qty = round(pos.quantity * exchange_ratio)
-        from leantrade.core.types import InstrumentId
-        from leantrade.execution.simulator.state import Position
+        from learntrade.core.types import InstrumentId
+        from learntrade.execution.simulator.state import Position
         new_iid = acquirer_id
         if new_iid in state.positions:
             existing = state.positions[new_iid]
