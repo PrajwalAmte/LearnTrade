@@ -230,14 +230,14 @@ class AblationRunner:
         since: datetime,
         until: datetime,
     ) -> tuple[list[float], list[float]]:
-        from learntrade.features.price_volume import PriceVolumeFeatureSet
+        from learntrade.features.price_volume import default_feature_set
         from learntrade.quant.models.ridge import RidgeReturnModel
         from learntrade.quant.targets.labels import compute_forward_returns, merge_features_labels
         from learntrade.quant.targets.horizon import get_horizon
         from learntrade.quant.validation.walk_forward import PurgedWalkForwardCV
         from learntrade.core.clock import now as _now
 
-        feature_set = PriceVolumeFeatureSet()
+        feature_set = default_feature_set(self._store, market)
         h = get_horizon(horizon)
         instruments = self._store.get_universe(market, until) or self._store.get_universe(market, _now())
         if not instruments:

@@ -19,7 +19,7 @@ import polars as pl
 
 from learntrade.core.types import InstrumentId
 from learntrade.data.store.pit import PITStore
-from learntrade.features.price_volume import PriceVolumeFeatureSet
+from learntrade.features.price_volume import PriceVolumeFeatureSet, default_feature_set
 from learntrade.markets.loader import get_pack
 from learntrade.quant.calibration.isotonic import IsotonicCalibrator
 from learntrade.quant.calibration.metrics import CalibrationReport, compute_calibration_report
@@ -99,12 +99,15 @@ class QuantTrainer:
         self._artifacts_dir = artifacts_dir or Path("data/models")
         self._holdout_days = holdout_days
         self._membership: dict[str, Any] = {}
-        self._features = PriceVolumeFeatureSet()
+        self._fundamentals_info: dict[str, Any] = {"used": False}
+        self._features = default_feature_set(store)
 
     def _build_dataset(
         self, market: str, since: datetime, until: datetime
     ) -> tuple[pl.DataFrame, list[str], str | None, int]:
         """Features + labels for the whole period. Returns (merged, feat_cols, benchmark_id, n_instruments)."""
+        # The feature set depends on what this market has stored (e.g. company financials).
+        self._features = default_feature_set(self._store, market)
         logger.info(
             "Training %s for %s [%s → %s]",
             self._horizon.id, market, since.date(), until.date(),
@@ -181,6 +184,10 @@ class QuantTrainer:
         mem["coverage"] = len(listed & have_bars) / max(len(listed), 1)
         mem["missing_symbols"] = sorted(listed - have_bars)[:25]
         self._membership = mem
+        self._fundamentals_info = {"used": False}
+        if self._features.fundamentals and "earnings_yield" in merged.columns and len(merged):
+            cov = 1.0 - merged["earnings_yield"].null_count() / len(merged)
+            self._fundamentals_info = {"used": True, "coverage": round(float(cov), 3)}
         if merged.is_empty():
             raise ValueError("No rows left after applying membership dates.")
 
@@ -215,8 +222,15 @@ class QuantTrainer:
         )
         return dev, hold
 
+    def build_dataset(self, market: str, since: datetime, until: datetime) -> dict[str, Any]:
+        """Build features + labels once, to share across several models (see run_evaluation)."""
+        merged, feat_cols, bm, n_inst = self._build_dataset(market, since, until)
+        return {"merged": merged, "feat_cols": feat_cols, "benchmark_id": bm, "n_instruments": n_inst,
+                "features": self._features, "membership": self._membership}
+
     def holdout_signals(
-        self, market: str, since: datetime, until: datetime, signal: str = "model"
+        self, market: str, since: datetime, until: datetime, signal: str = "model",
+        dataset: dict[str, Any] | None = None,
     ) -> tuple[pl.DataFrame, pl.DataFrame, int]:
         """
         Out-of-sample signals for the reserved holdout dates.
@@ -227,7 +241,11 @@ class QuantTrainer:
         """
         if self._holdout_days <= 0:
             raise ValueError("holdout_days must be > 0 for an out-of-sample evaluation")
-        merged, feat_cols, _bm, n_inst = self._build_dataset(market, since, until)
+        if dataset is None:
+            dataset = self.build_dataset(market, since, until)
+        else:
+            self._features, self._membership = dataset["features"], dataset["membership"]
+        merged, feat_cols, n_inst = dataset["merged"], dataset["feat_cols"], dataset["n_instruments"]
         dev, hold = self._split_holdout(merged)
         if hold is None or hold.is_empty():
             raise ValueError("Not enough history to reserve a holdout. Pull more data first.")
@@ -299,9 +317,14 @@ class QuantTrainer:
                     for r in merged["instrument_id"][fold.test_indices].to_list()
                 ]
                 forecasts = model.predict_distribution(X_te, iids_te, until)
+                if len(forecasts) != len(fold.test_indices):
+                    # Truncating would pair every later score with the wrong outcome.
+                    raise ValueError(
+                        f"model returned {len(forecasts)} forecasts for "
+                        f"{len(fold.test_indices)} test rows")
                 oof_s = np.array([f.expected_return for f in forecasts])
-                oof_l = y_te.to_numpy()[:len(oof_s)]
-                oof_dates = dates_te_arr[:len(oof_s)]
+                oof_l = y_te.to_numpy()
+                oof_dates = dates_te_arr
 
                 # Per-date IC/Rank-IC, not one correlation pooled across every
                 # (date, instrument) row in the fold — see ic_by_date().
@@ -395,7 +418,7 @@ class QuantTrainer:
 
         cal_path = None
         if calibrator:
-            cal_path = str(self._artifacts_dir / f"{market}_{self._horizon.id}_calibrator.pkl")
+            cal_path = str(self._artifacts_dir / f"{market}_{self._horizon.id}_{final_model.id}_calibrator.pkl")
             calibrator.save(cal_path)
 
         report: dict[str, Any] = {
@@ -409,6 +432,7 @@ class QuantTrainer:
             "data_start": str(full["event_time"].min())[:10],
             "data_end": str(full["event_time"].max())[:10],
             "membership": self._membership,
+            "fundamentals": self._fundamentals_info,
             "survivorship_note": None,   # derived from `membership` by reliability.assess_reliability
             "cv": {
                 "rank_ic_mean": ic_result.rank_ic_mean,

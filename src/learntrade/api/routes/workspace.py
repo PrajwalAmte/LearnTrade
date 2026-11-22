@@ -34,7 +34,7 @@ def _cfg() -> Any:
 def _open_store() -> Any:
     from learntrade.data.store.pit import PITStore
     try:
-        return PITStore(_cfg().workspace.data_dir)
+        return PITStore(_cfg().workspace.data_dir, lock_wait=3)
     except Exception as exc:  # DuckDB: another process holds the file
         raise HTTPException(
             status_code=503,
@@ -114,6 +114,19 @@ class StartRequest(BaseModel):
     index: str | None = None     # e.g. "SP500": use a built-in index with its join dates
 
 
+def _train_steps(mic: str, since: str, prefix: str = "Teaching the model") -> list[jobs.Step]:
+    """One training step per horizon offered on the page (1 week, 1 month, 3 months).
+
+    The 1-month model is required; the others are optional so a short history (too little for
+    the 3-month horizon) does not fail the whole setup."""
+    return [
+        jobs.Step(f"{prefix} ({HORIZON_LABELS[h]})",
+                  ["train", "--market", mic, "--since", since, "--horizon", h],
+                  optional=(h != "swing_20d"))
+        for h in ("swing_20d", "swing_5d", "positional_60d")
+    ]
+
+
 def _parse_symbols(text: str) -> list[str]:
     seen: list[str] = []
     for tok in re.split(r"[\s,;]+", (text or "").upper()):
@@ -134,7 +147,7 @@ def start(req: StartRequest) -> dict[str, Any]:
     if req.mode == "demo":
         steps = [
             jobs.Step("Creating practice data (fake stocks)", ["demo"]),
-            jobs.Step("Teaching the model on that data", ["train", "--market", "XNYS"]),
+            *_train_steps("XNYS", "2015-01-01", prefix="Teaching the model on that data"),
         ]
         return jobs.start("Setting up the demo", steps).public()
 
@@ -152,8 +165,9 @@ def start(req: StartRequest) -> dict[str, Any]:
                       ["universe", "fetch-index", key, "--since", since]),
             jobs.Step("Downloading 3 years of prices (a few minutes for ~500 stocks)", [
                 "data", "pull", "--market", mic, "--since", since, "--capabilities", "bars_daily"]),
-            jobs.Step("Teaching the model on that history", [
-                "train", "--market", mic, "--since", since]),
+            jobs.Step("Loading company financials (earnings, valuation)", [
+                "data", "pull", "--market", mic, "--capabilities", "fundamentals,corporate_actions"], optional=True),
+            *_train_steps(mic, since),
         ]
         return jobs.start(f"Setting up the {SUPPORTED[key][1]}", steps).public()
 
@@ -178,8 +192,9 @@ def start(req: StartRequest) -> dict[str, Any]:
         jobs.Step("Saving your stock list", ["universe", "import", str(csv_path), "--mic", mic]),
         jobs.Step("Downloading 3 years of prices", [
             "data", "pull", "--market", mic, "--since", since, "--capabilities", "bars_daily"]),
-        jobs.Step("Teaching the model on that history", [
-            "train", "--market", mic, "--since", since]),
+        jobs.Step("Loading company financials (earnings, valuation)", [
+            "data", "pull", "--market", mic, "--capabilities", "fundamentals,corporate_actions"], optional=True),
+        *_train_steps(mic, since),
         jobs.Step("Fetching recent news headlines", ["news", "pull", "--market", mic],
                   optional=True),
     ]
@@ -202,7 +217,9 @@ def refresh() -> dict[str, Any]:
             jobs.Step(f"Getting the latest {mic} prices", [
                 "data", "pull", "--market", mic, "--since", since, "--capabilities", "bars_daily"]),
             jobs.Step(f"Fetching {mic} news", ["news", "pull", "--market", mic], optional=True),
-            jobs.Step(f"Re-teaching the {mic} model", ["train", "--market", mic, "--since", train_since]),
+            jobs.Step(f"Updating {mic} company financials", [
+                "data", "pull", "--market", mic, "--capabilities", "fundamentals,corporate_actions"], optional=True),
+            *_train_steps(mic, train_since, prefix=f"Re-teaching the {mic} model"),
         ]
     return jobs.start("Updating your data", steps).public()
 
@@ -334,6 +351,16 @@ def stock(instrument_id: str, horizon: str = "swing_20d", model: str = "ridge") 
     ][-120:]
 
     events, _ = _news_context(_cfg(), str(iid), now)
+    fundamentals: dict = {}
+    try:
+        from learntrade.features.fundamentals import snapshot
+        store = _open_store()
+        try:
+            fundamentals = snapshot(store, str(iid), closes[-1]["c"] if closes else None, now)
+        finally:
+            store.close()
+    except Exception:
+        fundamentals = {}
     return {
         "instrument": str(iid), "symbol": iid.symbol, "horizon": horizon,
         "horizon_label": HORIZON_LABELS.get(horizon, horizon),
@@ -341,6 +368,6 @@ def stock(instrument_id: str, horizon: str = "swing_20d", model: str = "ridge") 
         "expected_return": float(fc.expected_return), "p_up": float(fc.p_positive),
         "risk": float(fc.volatility),
         "low": float(fc.quantiles.q05), "high": float(fc.quantiles.q95),
-        "closes": closes, "news": events, "outside": outside,
+        "closes": closes, "news": events, "fundamentals": fundamentals, "outside": outside,
         "reliability": _reliability(iid.mic, horizon, model, source.startswith("raw momentum")),
     }

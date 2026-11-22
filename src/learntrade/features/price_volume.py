@@ -20,6 +20,9 @@ if TYPE_CHECKING:
     from learntrade.data.store.pit import PITStore
 
 FEATURE_SET_VERSION = "price_volume_v2_cs"
+FEATURE_SET_VERSION_FUND = "price_fund_v3_cs"
+
+_MIN_FUNDAMENTAL_STOCKS = 5   # need a cross-section for the normalisation to mean anything
 
 
 def compute_price_volume_features(
@@ -138,7 +141,8 @@ def add_cross_sectional(df: pl.DataFrame, cols: list[str], date_col: str | None)
             mean, std, cnt = mean.over(date_col), std.over(date_col), cnt.over(date_col)
         z = ((pl.col(c) - mean) / (std + 1e-8)).clip(-5.0, 5.0)
         exprs.append(
-            pl.when(cnt >= _MIN_NAMES_FOR_ZSCORE).then(z).otherwise(0.0).fill_nan(0.0).alias(f"{c}_cs")
+            pl.when(cnt >= _MIN_NAMES_FOR_ZSCORE).then(z).otherwise(0.0)
+            .fill_nan(0.0).fill_null(0.0).alias(f"{c}_cs")   # missing value = neutral
         )
     return df.with_columns(exprs)
 
@@ -157,6 +161,17 @@ class PriceVolumeFeatureSet:
     mom_windows: list[int] = field(default_factory=lambda: [5, 20])
     vol_window: int = 20
     cross_sectional: bool = True
+    fundamentals: bool = False   # add valuation / quality / growth (see features.fundamentals)
+
+    def __post_init__(self) -> None:
+        if self.fundamentals and self.id == FEATURE_SET_VERSION:
+            self.id = FEATURE_SET_VERSION_FUND
+            self.requires = self.requires + ["fundamentals"]
+
+    @property
+    def fundamental_names(self) -> list[str]:
+        from learntrade.features.fundamentals import FUNDAMENTAL_FEATURES
+        return list(FUNDAMENTAL_FEATURES) if self.fundamentals else []
 
     @property
     def raw_feature_names(self) -> list[str]:
@@ -169,12 +184,27 @@ class PriceVolumeFeatureSet:
         raw volatility level (used to scale each stock's forecast range)."""
         raw = self.raw_feature_names
         if not self.cross_sectional:
-            return raw
-        return [f"{c}_cs" for c in raw] + [f"ewma_vol_{self.vol_window}d"]
+            return raw + self.fundamental_names
+        return ([f"{c}_cs" for c in raw] + [f"ewma_vol_{self.vol_window}d"]
+                + [f"{c}_cs" for c in self.fundamental_names])
 
     def _out_cols(self) -> list[str]:
-        raw = self.raw_feature_names
+        raw = self.raw_feature_names + self.fundamental_names
         return raw + ([f"{c}_cs" for c in raw] if self.cross_sectional else [])
+
+    def _with_fundamentals(
+        self, df: pl.DataFrame, store: "PITStore", as_of: datetime, date_col: str | None,
+    ) -> pl.DataFrame:
+        """Join valuation/quality/growth features onto rows that carry ``close``."""
+        from learntrade.features.fundamentals import FUNDAMENTAL_FEATURES, attach_fundamentals
+        stmts = store.query_fundamentals(as_of, None)
+        splits = store.query_splits()
+        if date_col is None:     # inference: price date is the latest bar
+            df = df.with_columns(pl.lit(as_of).alias("_asof_date"))
+            df = attach_fundamentals(df, stmts, "_asof_date", splits=splits).drop("_asof_date")
+        else:
+            df = attach_fundamentals(df, stmts, date_col, splits=splits)
+        return add_cross_sectional(df, FUNDAMENTAL_FEATURES, date_col) if self.cross_sectional else df
 
     def compute(
         self,
@@ -196,8 +226,10 @@ class PriceVolumeFeatureSet:
             featured.sort(["instrument_id", "event_time"])
             .group_by("instrument_id")
             .last()
-            .select(["instrument_id"] + self.raw_feature_names)
+            .select(["instrument_id", "close"] + self.raw_feature_names)
         )
+        if self.fundamentals:
+            latest = self._with_fundamentals(latest, store, as_of, None)
         if self.cross_sectional:
             latest = add_cross_sectional(latest, self.raw_feature_names, None)
         return latest.select(["instrument_id"] + self._out_cols())
@@ -225,9 +257,11 @@ class PriceVolumeFeatureSet:
             .filter(
                 (pl.col("event_time") >= since) & (pl.col("event_time") <= until)
             )
-            .select(["instrument_id", "event_time"] + self.raw_feature_names)
+            .select(["instrument_id", "event_time", "close"] + self.raw_feature_names)
             .drop_nulls(subset=[c for c in required if c in featured.columns])
         )
+        if self.fundamentals:
+            hist = self._with_fundamentals(hist, store, until, "event_time")
         if self.cross_sectional:
             hist = add_cross_sectional(hist, self.raw_feature_names, "event_time")
         return hist.select(["instrument_id", "event_time"] + self._out_cols())
@@ -237,3 +271,19 @@ def _cast_ohlcv(bars: pl.DataFrame) -> pl.DataFrame:
     casts = {c: pl.Float64 for c in ["open", "high", "low", "close", "volume", "adj_close"]
              if c in bars.columns}
     return bars.with_columns([pl.col(c).cast(t, strict=False) for c, t in casts.items()])
+
+
+def has_fundamentals(store: "PITStore", market: str | None = None) -> bool:
+    """True once enough stocks OF THIS MARKET have statements for the features to mean anything.
+
+    Per market: financials stored for one market must not change another market's features
+    (that would invalidate its trained model and add all-zero columns)."""
+    try:
+        return store.count_fundamental_stocks(market) >= _MIN_FUNDAMENTAL_STOCKS
+    except Exception:
+        return False
+
+
+def default_feature_set(store: "PITStore", market: str | None = None) -> PriceVolumeFeatureSet:
+    """The feature set for a market: fundamentals are included when that market has them."""
+    return PriceVolumeFeatureSet(fundamentals=has_fundamentals(store, market))

@@ -123,9 +123,9 @@ class AttributionStore:
             conditions.append("as_of >= ?")
             params.append(since.isoformat())
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
-        result = self._con.execute(
+        result = self._con.sql(
             f"SELECT * FROM decisions {where} ORDER BY as_of DESC LIMIT ?",
-            params + [limit],
+            params=params + [limit],
         )
         return pl.from_arrow(result.to_arrow_table())
 

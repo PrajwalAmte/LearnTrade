@@ -59,7 +59,7 @@ async def rebalance_proposal(
 ) -> dict:
     from learntrade.core.config import get_config
     from learntrade.data.store.pit import PITStore
-    from learntrade.features.price_volume import PriceVolumeFeatureSet
+    from learntrade.features.price_volume import default_feature_set
     from learntrade.portfolio.allocators import HRPAllocator, EqualWeightAllocator
     from learntrade.core.types import Forecast, ForecastQuantiles, InstrumentId
     from datetime import datetime, timezone
@@ -72,7 +72,7 @@ async def rebalance_proposal(
         instruments = store.get_universe(market, now)
         if not instruments:
             return {"error": f"No universe for {market}", "proposals": []}
-        feature_set = PriceVolumeFeatureSet()
+        feature_set = default_feature_set(store, market)
         features = feature_set.compute(instruments, now, store)
         if features.is_empty():
             return {"error": "No features available", "proposals": []}

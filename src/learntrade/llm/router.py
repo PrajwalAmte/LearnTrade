@@ -221,7 +221,7 @@ class LLMRouter:
             return AnthropicClient(api_key=secrets.anthropic_api_key, model=model)
         if provider == "ollama":
             from learntrade.llm.clients.ollama import OllamaClient
-            return OllamaClient(model=model)
+            return OllamaClient(model=model, base_url=getattr(cfg, "base_url", None) or "http://localhost:11434")
         raise ValueError(
             f"Unknown LLM provider {provider!r}. "
             "Supported: openai_compatible, anthropic, ollama"

@@ -19,7 +19,7 @@ XNAS = { source = "index_members", index = "NASDAQ100", point_in_time = true }
 # ── Data providers ────────────────────────────────────────────────────────────
 [data.providers]
 prices        = ["yahoo"]          # preference order; falls back down the list
-fundamentals  = ["fmp"]
+fundamentals  = ["sec_edgar", "yahoo"]   # sec_edgar needs LEARNTRADE_SEC_USER_AGENT; US only
 macro         = ["fred", "dbnomics"]
 news          = ["rss"]          # "gdelt" = global + deeper history, but ~5 s per stock
 

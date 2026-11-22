@@ -60,6 +60,19 @@ def _setup_logging(level: str = "INFO") -> None:
 
 
 @app.command()
+def mcp(
+    data_dir: Optional[str] = typer.Option(
+        None, help="Folder with your LearnTrade data (default: ./data or LEARNTRADE_DATA_DIR)"),
+) -> None:
+    """Run LearnTrade as an MCP server (stdio) for Claude Code, Codex and other MCP clients."""
+    import os
+    if data_dir:
+        os.environ["LEARNTRADE_DATA_DIR"] = str(Path(data_dir).expanduser().resolve())
+    from learntrade.mcp_server import serve as _serve
+    _serve()
+
+
+@app.command()
 def serve(
     host: str = typer.Option("127.0.0.1", help="Bind address"),
     port: int = typer.Option(8787, help="Port"),
@@ -297,7 +310,8 @@ def _model_artifact_paths(cfg: Any, market: str, horizon: str, model_name: str) 
     model_cls = _require_model_class(model_name)
     models_dir = cfg.workspace.data_dir / "models"
     model_path = models_dir / f"{market}_{horizon}_{model_cls.id}.pkl"
-    cal_path = models_dir / f"{market}_{horizon}_calibrator.pkl"
+    # One calibrator per model: score scales differ between models.
+    cal_path = models_dir / f"{market}_{horizon}_{model_cls.id}_calibrator.pkl"
     return model_path, cal_path
 
 
@@ -312,7 +326,7 @@ def _require_model_class(model_name: str) -> Any:
 
 
 def _load_trained_model(
-    cfg: Any, market: str, horizon: str, model_name: str
+    cfg: Any, market: str, horizon: str, model_name: str, store: Any = None
 ) -> tuple[Any, Any]:
     """
     Load a previously trained model and its (optional) calibrator.
@@ -324,13 +338,16 @@ def _load_trained_model(
     if not model_path.exists():
         return None, None
     model = model_cls.load(str(model_path))
-    from learntrade.features.price_volume import FEATURE_SET_VERSION
-    if getattr(model, "feature_set_version", FEATURE_SET_VERSION) != FEATURE_SET_VERSION:
+    from learntrade.features.price_volume import default_feature_set
+    # The feature set depends on the data: company financials are included once stored.
+    expected = default_feature_set(store, market).id if store is not None else None
+    trained_on = getattr(model, "feature_set_version", expected)
+    if expected is not None and trained_on != expected:
         # Trained on an older feature definition; its inputs would not line up. Treat as
         # "not trained" so callers fall back and the UI asks for an update.
         logging.getLogger(__name__).warning(
             "Model %s was trained on features %r, current is %r - re-train with `learntrade train`.",
-            model_path.name, model.feature_set_version, FEATURE_SET_VERSION)
+            model_path.name, trained_on, expected)
         return None, None
     calibrator = None
     if cal_path.exists():
@@ -366,19 +383,19 @@ def _generate_current_forecasts(
     ever been trained).
     """
     from learntrade.core.types import Forecast, ForecastQuantiles, InstrumentId
-    from learntrade.features.price_volume import PriceVolumeFeatureSet
+    from learntrade.features.price_volume import default_feature_set
 
     now = datetime.now(tz=timezone.utc)
     instruments = store.get_universe(market, now)
     if not instruments:
         return [], "no_universe"
 
-    feature_set = PriceVolumeFeatureSet()
+    feature_set = default_feature_set(store, market)
     features = feature_set.compute(instruments, now, store)
     if features.is_empty():
         return [], "no_features"
 
-    trained_model, calibrator = _load_trained_model(cfg, market, horizon, model_name)
+    trained_model, calibrator = _load_trained_model(cfg, market, horizon, model_name, store)
     if trained_model is not None:
         feat_cols = [c for c in feature_set.feature_names if c in features.columns]
         raw_iids = features["instrument_id"].to_list()
@@ -431,10 +448,10 @@ def _forecast_outside_universe(
     from learntrade.data.providers.base import FetchRequest
     from learntrade.data.providers.registry import ProviderRegistry
     import polars as pl
-    from learntrade.features.price_volume import PriceVolumeFeatureSet
+    from learntrade.features.price_volume import default_feature_set
 
     market = iid.mic
-    model, calibrator = _load_trained_model(cfg, market, horizon, model_name)
+    model, calibrator = _load_trained_model(cfg, market, horizon, model_name, store)
     if model is None:
         return None, {}, (f"No trained {model_name} model for {market}. Set up and train on a list "
                           f"of stocks first.")
@@ -457,11 +474,17 @@ def _forecast_outside_universe(
         return None, {}, (f"Not enough price history for {iid} ({len(obs)} days found). "
                           f"Check the symbol.")
     store.ingest(obs)
+    try:   # financials for the same stock, so it is scored on the same features as the list
+        from learntrade.data.providers.yahoo import YahooProvider
+        yp = YahooProvider()
+        store.ingest(list(yp._fetch_fundamentals(iid)) + list(yp._fetch_splits(iid)))
+    except Exception:
+        pass
 
     # Re-take 'now': the new bars carry their download time as available_at, so a
     # timestamp from before the fetch would (correctly) hide them as 'future' data.
     now = datetime.now(tz=timezone.utc)
-    fs = PriceVolumeFeatureSet()
+    fs = default_feature_set(store, market)
     # Features are normalised across stocks, so score the new stock alongside the universe
     # (its row is then read off) instead of in isolation.
     members = store.get_universe(market, now)
@@ -499,7 +522,7 @@ def backtest(
     from learntrade.backtest.report import generate_report
     from learntrade.core.config import get_config
     from learntrade.data.store.pit import PITStore
-    from learntrade.features.price_volume import PriceVolumeFeatureSet
+    from learntrade.features.price_volume import default_feature_set
     from learntrade.markets import get_pack
     from learntrade.quant.targets.labels import compute_forward_returns, merge_features_labels
 
@@ -514,7 +537,7 @@ def backtest(
             console.print(f"[red]No universe for {market}. Run `learntrade universe import`.[/]")
             raise typer.Exit(1)
 
-        feature_set = PriceVolumeFeatureSet()
+        feature_set = default_feature_set(store, market)
         bars = store.query_bars(instruments, as_of=now, since=since_dt)
         if bars.is_empty():
             console.print("[red]No bars found. Run `learntrade data pull` first.[/]")
@@ -528,7 +551,7 @@ def backtest(
             console.print("[red]No features. Run `learntrade data pull` first.[/]")
             raise typer.Exit(1)
 
-        trained_model, calibrator = _load_trained_model(cfg, market, horizon, model)
+        trained_model, calibrator = _load_trained_model(cfg, market, horizon, model, store)
         signal_source: str
         if trained_model is not None:
             # Use the TRAINED model's forecast as the signal, not a raw
@@ -799,13 +822,13 @@ def analyze(
         llm_cost = 0.0
         if cfg.llm.enabled:
             import asyncio
-            from learntrade.features.price_volume import PriceVolumeFeatureSet
+            from learntrade.features.price_volume import default_feature_set
             from learntrade.llm.research.fact_sheet import build_fact_sheet
             from learntrade.llm.research.orchestrator import ResearchOrchestrator
             from learntrade.llm.router import LLMRouter
             try:
                 router = LLMRouter()
-                feat_row_df = PriceVolumeFeatureSet().compute([iid], datetime.now(tz=timezone.utc), store)
+                feat_row_df = default_feature_set(store, market).compute([iid], datetime.now(tz=timezone.utc), store)
                 feat_row = feat_row_df.row(0, named=True) if not feat_row_df.is_empty() else {}
                 events, news_evidence = _news_context(cfg, str(iid), datetime.now(tz=timezone.utc))
                 fact_sheet = build_fact_sheet(

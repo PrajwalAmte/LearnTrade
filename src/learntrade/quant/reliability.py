@@ -109,6 +109,8 @@ def assess_reliability(report: dict[str, Any], last_bar: str | None = None,
         "benchmark": report.get("benchmark_id"),
         "label_type": report.get("label_type"),
         "membership_mode": mem.get("mode", "current_list"),
+        "fundamentals_used": bool((report.get("fundamentals") or {}).get("used")),
+        "fundamentals_coverage": (report.get("fundamentals") or {}).get("coverage"),
         "price_data_age_days": stale_days,
     }
     return {"level": level, "headline": headline, "reasons": reasons, "facts": facts}

@@ -12,8 +12,9 @@ It runs on your own computer. It does not buy or sell anything. It does not need
 
 1. You give it a list of stocks you care about (for example, 10 to 50 companies).
 2. It downloads their past prices (for free) and recent news headlines.
-3. It looks for patterns in the price history, tests whether those patterns would have worked in the past, and learns from them.
-4. It shows you a ranked list: strongest outlook at the top, weakest at the bottom, with a short plain-English explanation for each stock.
+3. It also reads each company's financials (earnings, valuation, profitability, growth) when they are available.
+4. It looks for patterns in the price history and financials, tests whether those patterns would have worked in the past, and learns from them.
+5. It shows you a ranked list: strongest outlook at the top, weakest at the bottom, with a short plain-English explanation for each stock.
 
 It works for **any country's stock market** that has a market profile (India, USA, UK, Germany, Japan, Australia and more are included).
 
@@ -68,12 +69,12 @@ In the USA you can skip typing: click **Use the whole S&P 500**. It loads all ~5
 
 ### The main screen
 
-A ranked list of your stocks. Click any stock to see its details and recent news.
+A ranked list of your stocks. Click any stock to see its details, key financials (P/E, return on equity, growth) and recent news.
 
 | Word on screen | What it means |
 |---|---|
 | **Outlook** | How much better or worse than the overall market this stock is expected to do over the chosen period. `+2%` means "expected to beat the market by about 2%". |
-| **Chance it rises** | The estimated probability that the stock ends higher. 53% is only slightly better than a coin flip, and that is typical. Markets are hard. |
+| **Chance it beats the market** | The estimated probability that the stock does better than the overall market (the benchmark index) over the period. 53% is only slightly better than a coin flip, and that is typical. In a falling market a stock can beat the market and still lose money. |
 | **Bumpiness** | How much the stock tends to jump around. Higher means a rougher ride. |
 | **Typical range** | Where most outcomes are expected to land. It is usually wide. That is the honest picture. |
 | **Looking ahead** | Choose about 1 week, 1 month or 3 months. |
@@ -118,9 +119,129 @@ Click **Update data** now and then (for example once a week). It fetches the lat
 
 ---
 
+## Company financials
+
+When you set up real stocks, LearnTrade downloads each company's annual and quarterly results (free source) and uses valuation, profitability and growth alongside the price patterns. Each stock's page shows the main numbers. A result only counts from a safe delay after the period ends (60 to 90 days), so the tool never uses a number before the market could have known it. Outside the USA the free source covers about three years, so there it adds context and a small boost, not a guarantee.
+
+**Deeper history for US stocks (recommended).** The US regulator, the SEC, publishes every company's filings for free, with the exact date each one came out and ten or more years of history. To use it, tell the SEC who is asking (they require a name and email so they can contact you if your computer sends too many requests). Add this line to your `.env` file (copy `.env.example` to `.env` first):
+
+```
+LEARNTRADE_SEC_USER_AGENT=Your Name your.email@example.com
+```
+
+Then press **Update data** (or run `uv run learntrade data pull --market XNYS --capabilities fundamentals,corporate_actions`). Your email is only sent to the SEC in the request header, nowhere else. Without this line LearnTrade quietly uses the three-year free source instead. Stock splits are taken into account, so per-share numbers line up with prices.
+
 ## News
 
-When you set up real stocks, LearnTrade also fetches recent headlines for each one (free sources). They appear on each stock's page. Headlines mentioning earnings, dividends or similar events are flagged for extra attention in the optional AI research step. News is not yet part of the numbers behind the ranking; it is there to give you context.
+When you set up real stocks, LearnTrade also fetches recent headlines for each one (free sources). They appear on each stock's page. Headlines mentioning earnings, dividends or similar events are flagged for extra attention in the optional AI research step (see [Connect an AI model](#connect-an-ai-model-optional)). News is not yet part of the numbers behind the ranking; it is there to give you context.
+
+---
+
+## Connect an AI model (optional)
+
+The ranking, the numbers and the web page work **without any AI account**. Connecting an AI model adds two extras that you run from a terminal (the web page does not use it yet):
+
+- **A written second opinion on one stock:** `uv run learntrade analyze TCS --horizon swing_20d` (use your own symbol). The AI reads the numbers and recent headlines and writes a short case for and against.
+- **Reading headlines for key events** (earnings, dividends and similar): `uv run learntrade news extract`
+
+This part is newer than the rest and has only been tested with stand-in responses, not a live AI service, so treat it as a preview.
+
+### Step 1: Get a key (or use a local model)
+
+| You have | What to use |
+|---|---|
+| An OpenAI key, or any service that copies OpenAI's format (OpenRouter, Azure, LM Studio, vLLM) | provider `openai_compatible` |
+| An Anthropic (Claude) key | provider `anthropic` |
+| Nothing to pay for, and a computer that can run [Ollama](https://ollama.com) | provider `ollama` (no key needed; Ollama must be running) |
+
+### Step 2: Put the key in the `.env` file
+
+In the LearnTrade folder, copy `.env.example` to a new file named `.env` (the dot at the start is part of the name), open it in any text editor, and fill in the line for your service:
+
+```
+LEARNTRADE_OPENAI_API_KEY=sk-...your key...
+# Only for services other than OpenAI itself, for example OpenRouter:
+LEARNTRADE_OPENAI_BASE_URL=https://openrouter.ai/api/v1
+
+LEARNTRADE_ANTHROPIC_API_KEY=...your key...
+```
+
+Keys stay on your computer. Never put them in `learntrade.toml`.
+
+### Step 3: Switch it on and choose the model
+
+Copy `config/learntrade.example.toml` to `config/learntrade.toml`, then edit the `[llm]` part:
+
+```toml
+[llm]
+enabled = true
+budget_usd_per_run = 1.00     # a spending cap per run
+budget_usd_per_day = 5.00     # a spending cap per day
+
+[llm.models.extract]          # reads headlines (cheap model is fine)
+provider = "openai_compatible"
+model    = "gpt-4o-mini"
+
+[llm.models.research]         # writes the for/against case
+provider = "openai_compatible"
+model    = "gpt-4o"
+
+[llm.models.escalation]       # a second look when the first one is unsure
+provider = "openai_compatible"
+model    = "gpt-4o"
+```
+
+Use the same provider for all three parts if you only have one key. The example file points the third part at Anthropic, so change it unless you have an Anthropic key too. For a local model, use `provider = "ollama"` and `model = "llama3.1"` (any model you have pulled).
+
+### Step 4: Try it
+
+```bash
+uv run learntrade analyze TCS
+```
+
+If it says the AI is switched off, check that `enabled = true` is saved in `config/learntrade.toml`. If it reports a missing or rejected key, re-check `.env` (no spaces or quotes around the key). The budget caps stop it from spending more than you set.
+
+---
+
+## Use LearnTrade from Claude Code, Codex or another AI tool (MCP)
+
+LearnTrade can run as an **MCP server**, which lets an AI coding assistant ask it questions directly ("which stocks in my list look strongest, and how reliable is that ranking?") instead of reading terminal text. It is read-only: it cannot place orders and cannot change your stock lists or models.
+
+What the assistant can ask:
+
+| Tool | What it returns |
+|---|---|
+| `status` | Which markets have data (and how fresh), which models are trained |
+| `rank` | The ranked list for a market, strongest first, with the reliability verdict |
+| `stock` | One company: forecast, key financials, recent headlines, reliability. A stock outside your list is only fetched if the assistant passes `download=True` |
+| `reliability` | How well the ranking has worked in testing |
+| `evaluate` | The out-of-sample comparison of all models (can take a few minutes on big lists) |
+
+Set up your data first with the web page (so there is something to ask about), then connect the assistant. Replace `/path/to/LearnTrade` with the folder you unzipped.
+
+**Claude Code**
+
+```bash
+claude mcp add learntrade -- uv run --directory /path/to/LearnTrade learntrade mcp
+```
+
+**Codex**
+
+```bash
+codex mcp add learntrade -- uv run --directory /path/to/LearnTrade learntrade mcp
+```
+
+or add this to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.learntrade]
+command = "uv"
+args = ["run", "--directory", "/path/to/LearnTrade", "learntrade", "mcp"]
+```
+
+**Other MCP tools** (Cursor, Claude Desktop, and so on) take the same command: `uv run --directory /path/to/LearnTrade learntrade mcp`.
+
+By default it reads the `data` folder inside the LearnTrade folder. To point it somewhere else, add `--data-dir /some/folder` after `learntrade mcp`. Then ask your assistant something like *"Use LearnTrade to show the ranking for XNSE and tell me how reliable it is."* If the web page is in the middle of updating data, a tool may say the data is busy; ask again in a minute.
 
 ---
 

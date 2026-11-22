@@ -12,7 +12,7 @@ How to read the columns:
 - **Designed, not implemented**: described in the design document; no working code.
 - **Planned**: ideas, not designed in detail.
 
-Last reviewed against the code on 2026-11-19 (updated after point-in-time membership).
+Last reviewed against the code on 2026-11-20 (updated after fundamentals).
 
 ## Implemented and tested
 
@@ -31,7 +31,10 @@ Last reviewed against the code on 2026-11-19 (updated after point-in-time member
 | Single-stock check | Score any stock, even outside your list, and see where it would rank | Live run (NSE) |
 | Reliability report | Each trained model writes a report; the UI turns it into a plain-language verdict with reasons | Unit tests; live run |
 | News headlines | RSS headlines stored point-in-time and shown per stock | Live run (NSE); unit tests |
+| Company financials (US filings) | SEC EDGAR company facts for US stocks (needs `LEARNTRADE_SEC_USER_AGENT`): true filing dates, ten or more years of annual and quarterly statements, first-reported values; stock splits from Yahoo keep per-share figures in the same units as prices. Preferred over Yahoo for any stock it covers | Unit tests; live run (see note below) |
+| Company financials | Yahoo annual and quarterly statements (revenue, profit, EPS, equity, debt, cash flow) stored point-in-time: a statement counts as public 60 days (quarterly) or 90 days (annual) after its period ends, because the real filing date is not provided. Nine features: earnings yield, book/price, sales/price, return on equity, gross margin, cash flow/assets, debt/assets, revenue growth, profit growth. Shown on each stock's page and used automatically in training once stored | Unit tests; live run on 30 NSE stocks (see note below) |
 | Index membership over time | Training and testing use "who was in the index on each date" when a membership history exists; S&P 500 join dates are built in (`universe fetch-index SP500`), any market via CSV (`--date-column` / `--added-column`) | Unit tests; live run on the S&P 500 |
+| MCP server (`learntrade mcp`) | Read-only tools (`status`, `rank`, `stock`, `reliability`, `evaluate`) over stdio for Claude Code, Codex and other MCP clients | Unit tests over a real stdio connection; tried with the MCP client library on real NSE and S&P 500 data |
 | Web page | Demo mode, real-stock setup, ranking, stock page, update data, reliability panel, single-stock lookup | Tried in a browser |
 
 ## Implemented, experimental
@@ -54,7 +57,7 @@ Last reviewed against the code on 2026-11-19 (updated after point-in-time member
 ## Designed, not implemented
 
 - Browser setup wizard and Settings pages (the old `/api/setup/*` routes are placeholders)
-- Fundamentals providers (FMP, Polygon are stubs that return nothing)
+- Fundamentals from FMP or Polygon (stubs that return nothing); a source with full filing history and true filing dates for non-US markets (non-US stocks use Yahoo, about three years)
 - Broker connections for placing real orders
 - Auto-download of full membership history (including companies that LEFT an index) for markets other than via CSV; the S&P 500 download lists current members with join dates only
 - Intraday data and intraday models
@@ -74,3 +77,24 @@ Last reviewed against the code on 2026-11-19 (updated after point-in-time member
 - **One test window.** The final test is a single recent period; a different one could rank models differently.
 - **Free prices.** Yahoo data can be late, adjusted differently, or missing for delisted symbols.
 - **Removed placeholder routes.** The empty `/api/research/*` and `/api/data/*` routes and the fake wizard step handler were deleted; the web page uses `/api/app/*`.
+
+## Note on fundamentals (measured 2026-11-20)
+
+Yahoo's free statements go back about 4 annual and 5 quarterly periods, so a stock has roughly three
+years of usable history. On 30 NSE stocks (rank IC in cross-validation / on the untouched final test):
+
+| Features | Ridge | LightGBM |
+|---|---|---|
+| Price only | 0.00 / +0.14 | 0.00 / +0.03 |
+| Price + all nine financial features | +0.01 / +0.07 | +0.03 / +0.03 |
+
+The difference is inside the noise on both models, so treat fundamentals as **context plus a small
+possible lift, not a proven edge**. Statements change only once or twice a year, so with few years
+of history the model sees them mostly as a fixed fingerprint of each company. A deeper history
+(US filings via SEC EDGAR company facts carry true filing dates back decades) is the natural next step.
+
+On the full S&P 500 (503 stocks, SEC filings with true filing dates, 2023-09 to 2026-10; untouched
+test window 2026-05-04 to 2026-10-22) rank IC moved from price-only to price plus financials:
+ridge -0.078 to -0.071, LightGBM -0.053 to -0.046, LightGBM ranker -0.049 to -0.024. All three
+shift toward zero but stay inside the error range, so there is still no measured edge on this
+group from these inputs.

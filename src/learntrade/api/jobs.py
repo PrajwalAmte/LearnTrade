@@ -9,6 +9,7 @@ single writer), and read endpoints report "busy" while it does.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import threading
@@ -74,14 +75,37 @@ def start(title: str, steps: list[Step]) -> Job:
     return job
 
 
+def _data_dir():
+    from learntrade.core.config import get_config
+    return get_config().workspace.data_dir
+
+
 def _run(job: Job) -> None:
+    from learntrade.core.activity import clear_job, mark_job
+    try:
+        mark_job(_data_dir(), job.title)
+    except Exception:
+        pass
+    try:
+        _run_steps(job)
+    finally:
+        try:
+            clear_job(_data_dir())
+        except Exception:
+            pass
+
+
+def _run_steps(job: Job) -> None:
+    # A step may have to wait for another process (e.g. an MCP evaluation) to release the
+    # data file, so let it wait minutes instead of failing straight away.
+    env = {**os.environ, "LEARNTRADE_DB_LOCK_WAIT": os.environ.get("LEARNTRADE_JOB_LOCK_WAIT", "900")}
     for i, step in enumerate(job.steps):
         job.current = i
         job.log.append(f"▶ {step.title}")
         try:
             proc = subprocess.Popen(
                 [sys.executable, "-m", "learntrade.cli.main", *step.args],
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env,
             )
             assert proc.stdout is not None
             for line in proc.stdout:

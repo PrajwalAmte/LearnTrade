@@ -45,11 +45,11 @@ class UniverseEntry(BaseModel):
 
 class DataProvidersConfig(BaseModel):
     prices: list[str] = Field(default_factory=lambda: ["yahoo"])
-    fundamentals: list[str] = Field(default_factory=list)
+    fundamentals: list[str] = Field(default_factory=lambda: ["sec_edgar", "yahoo"])
     macro: list[str] = Field(default_factory=list)
     news: list[str] = Field(default_factory=list)
     filings: list[str] = Field(default_factory=list)
-    corporate_actions: list[str] = Field(default_factory=list)
+    corporate_actions: list[str] = Field(default_factory=lambda: ["yahoo"])
 
 
 class DataConfig(BaseModel):
@@ -199,6 +199,16 @@ def _migrate_legacy_names() -> None:
 
 
 def load_config(config_path: Path | None = None) -> AppConfig:
+    """Load learntrade.toml (defaults if absent); LEARNTRADE_DATA_DIR overrides the data folder."""
+    cfg = _load_config_file(config_path)
+    data_dir = AppSecrets().data_dir
+    if data_dir and data_dir != "./data":      # explicitly set (env var or .env)
+        cfg = cfg.model_copy(update={
+            "workspace": cfg.workspace.model_copy(update={"data_dir": Path(data_dir).expanduser()})})
+    return cfg
+
+
+def _load_config_file(config_path: Path | None = None) -> AppConfig:
     """Load and validate learntrade.toml; fall back to defaults if absent."""
     _migrate_legacy_names()
     secrets = AppSecrets()

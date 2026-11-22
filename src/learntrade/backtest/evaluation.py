@@ -88,11 +88,15 @@ def run_evaluation(
     hold_ref: pl.DataFrame | None = None
     bars: pl.DataFrame | None = None
     mode_note = ""
+    dataset = None   # features + labels, built once and shared by every candidate
     for name, (cls, kind) in candidates.items():
         try:
             trainer = QuantTrainer(store, horizon, model_class=cls or next(iter(models.values())),
                                    holdout_days=holdout_days)
-            sigs, hold, n_inst = trainer.holdout_signals(market, since, now, signal=kind)
+            if dataset is None:
+                dataset = trainer.build_dataset(market, since, now)
+            sigs, hold, n_inst = trainer.holdout_signals(market, since, now, signal=kind,
+                                                          dataset=dataset)
             mode_note = membership_note(trainer._membership)
         except Exception as exc:
             out.notes.append(f"{name}: could not be evaluated. {friendly_error(exc)}")

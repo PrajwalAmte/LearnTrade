@@ -164,7 +164,7 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding:12px 0 28px}
     <div id="weakNote" class="notice hide">The model sees little difference between these stocks right now, so the order below is a mild hint. More stocks usually sharpen it.</div>
     <div id="rankErr" class="err hide"></div>
     <table>
-      <thead><tr><th>#</th><th>Stock</th><th>Outlook</th><th class="hide-sm">Chance it rises</th><th class="hide-sm">Bumpiness</th></tr></thead>
+      <thead><tr><th>#</th><th>Stock</th><th>Outlook</th><th class="hide-sm">Chance it beats the market</th><th class="hide-sm">Bumpiness</th></tr></thead>
       <tbody id="rankBody"></tbody>
     </table>
   </div>
@@ -178,7 +178,7 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding:12px 0 28px}
     <p class="muted small" id="dSub"></p>
     <div class="stats">
       <div class="stat"><div class="small muted">Outlook vs. the market</div><div class="big" id="dExp"></div><div class="small muted" id="dExpNote"></div></div>
-      <div class="stat"><div class="small muted">Chance it ends higher</div><div class="big" id="dUp"></div><div class="small muted">Not a promise — a probability.</div></div>
+      <div class="stat"><div class="small muted">Chance it beats the market</div><div class="big" id="dUp"></div><div class="small muted">Not a promise — a probability.</div></div>
       <div class="stat"><div class="small muted">Typical range</div><div class="big" id="dRange" style="font-size:20px"></div><div class="small muted">Most outcomes land in here.</div></div>
     </div>
     <p id="dTrust" class="small" style="margin:0 0 12px"></p>
@@ -186,6 +186,11 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding:12px 0 28px}
     <div id="dRough" class="notice hide">Quick estimate from recent price moves.</div>
     <div id="chart"></div>
     <p class="small muted" style="margin:4px 0 0">Price over the last ~6 months.</p>
+  </div>
+  <div class="card" id="dFundCard">
+    <h2>Company financials</h2>
+    <div class="facts" id="dFund"></div>
+    <p class="small muted" id="dFundNote" style="margin:8px 0 0"></p>
   </div>
   <div class="card">
     <h2>Recent news</h2>
@@ -291,10 +296,28 @@ function renderTrust(rel) {
   if (f.rank_ic != null) rows.push(['Ranking skill in testing (rank IC)', ic(f.rank_ic, f.rank_ic_ci)]);
   if (f.holdout_rank_ic != null) rows.push(['Final untouched test (' + f.holdout_days + ' days)', ic(f.holdout_rank_ic)]);
   if (f.auc != null) rows.push(['Direction accuracy (AUC; 0.5 = coin flip)', f.auc.toFixed(2)]);
+  if (f.fundamentals_used) rows.push(['Company financials', 'included' + (f.fundamentals_coverage != null ? ' (' + Math.round(f.fundamentals_coverage*100) + '% of history)' : '')]);
   rows.push(['Stock list', f.membership_mode === 'point_in_time' ? 'index membership by date' : "today's list"]);
   if (f.label_type) rows.push(['Measured against', f.label_type==='excess' ? (f.benchmark || 'the market index') : 'raw returns (no index)']);
   const box = $('trustFacts'); box.innerHTML = '';
   for (const [k,v] of rows) { const d = document.createElement('div'); const s = document.createElement('span'); s.textContent = k + ': '; d.appendChild(s); d.appendChild(document.createTextNode(v)); box.appendChild(d); }
+}
+
+function renderFund(f) {
+  const box = $('dFund'); box.innerHTML = '';
+  const pc = (v) => (v * 100).toFixed(0) + '%';
+  const rows = [];
+  if (f.pe != null) rows.push(['Price / earnings (P/E)', f.pe]);
+  if (f.pb != null) rows.push(['Price / book value', f.pb]);
+  if (f.roe != null) rows.push(['Return on equity', pc(f.roe)]);
+  if (f.gross_margin != null) rows.push(['Gross margin', pc(f.gross_margin)]);
+  if (f.rev_growth != null) rows.push(['Revenue growth (last year)', pc(f.rev_growth)]);
+  if (f.earn_growth != null) rows.push(['Profit growth (last year)', pc(f.earn_growth)]);
+  if (f.debt_to_assets != null) rows.push(['Debt / assets', pc(f.debt_to_assets)]);
+  for (const [k,v] of rows) { const d = document.createElement('div'); const s = document.createElement('span'); s.textContent = k + ': '; d.appendChild(s); d.appendChild(document.createTextNode(v)); box.appendChild(d); }
+  $('dFundNote').textContent = rows.length
+    ? 'From the latest annual report (year ending ' + f.as_of_period + ').'
+    : 'No financials stored yet. Tap “Update data” to fetch them.';
 }
 
 function spark(points) {
@@ -325,6 +348,7 @@ async function openStock(iid) {
     $('dTrust').textContent = 'Model reliability: ' + (LEVEL[d.reliability.level] || '') + '. ' + d.reliability.headline;
     if (d.outside) $('dOutside').textContent = `Not in your list. Compared with your ${d.outside.of - 1} stocks, it would rank ${d.outside.would_rank} of ${d.outside.of}.`;
     $('chart').innerHTML = spark(d.closes);
+    renderFund(d.fundamentals || {});
     const ul = $('dNews'); ul.innerHTML='';
     for (const n of d.news) { const li=document.createElement('li'); li.textContent=n; ul.appendChild(li); }
     show('dNoNews', d.news.length===0);
