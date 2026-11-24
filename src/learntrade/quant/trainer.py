@@ -90,7 +90,11 @@ class QuantTrainer:
         min_train_bars: int = 252,
         artifacts_dir: Path | None = None,
         holdout_days: int = 0,
+        features: str = "auto",
+        only: set[str] | None = None,
     ) -> None:
+        """``features``: "auto" (financials when stored), "price" or "price+fund".
+        ``only``: restrict training to these symbols (e.g. one size group of the list)."""
         self._store = store
         self._horizon = get_horizon(horizon_id)
         self._model_class = model_class
@@ -100,6 +104,8 @@ class QuantTrainer:
         self._holdout_days = holdout_days
         self._membership: dict[str, Any] = {}
         self._fundamentals_info: dict[str, Any] = {"used": False}
+        self._feature_choice = features
+        self._only = {s.split(":")[-1].upper() for s in only} if only else None
         self._features = default_feature_set(store)
 
     def _build_dataset(
@@ -107,7 +113,10 @@ class QuantTrainer:
     ) -> tuple[pl.DataFrame, list[str], str | None, int]:
         """Features + labels for the whole period. Returns (merged, feat_cols, benchmark_id, n_instruments)."""
         # The feature set depends on what this market has stored (e.g. company financials).
-        self._features = default_feature_set(self._store, market)
+        if self._feature_choice == "auto":
+            self._features = default_feature_set(self._store, market)
+        else:
+            self._features = PriceVolumeFeatureSet(fundamentals=self._feature_choice == "price+fund")
         logger.info(
             "Training %s for %s [%s → %s]",
             self._horizon.id, market, since.date(), until.date(),
@@ -121,6 +130,10 @@ class QuantTrainer:
             history = self._store.get_universe_history(market, _now())
         instruments = self._store.get_universe_union(market, until) or \
             self._store.get_universe_union(market, _now())
+        if self._only is not None:
+            instruments = [i for i in instruments if str(i).split(":")[-1].upper() in self._only]
+            history = [(at, [m for m in mem if m.split(":")[-1].upper() in self._only])
+                       for at, mem in history]
         if not instruments:
             raise ValueError(f"No universe for {market}. Import instruments first.")
         logger.info("Universe: %d instruments across %d snapshot(s)", len(instruments), len(history))
@@ -226,7 +239,8 @@ class QuantTrainer:
         """Build features + labels once, to share across several models (see run_evaluation)."""
         merged, feat_cols, bm, n_inst = self._build_dataset(market, since, until)
         return {"merged": merged, "feat_cols": feat_cols, "benchmark_id": bm, "n_instruments": n_inst,
-                "features": self._features, "membership": self._membership}
+                "features": self._features, "membership": self._membership,
+                "fundamentals_info": self._fundamentals_info}
 
     def holdout_signals(
         self, market: str, since: datetime, until: datetime, signal: str = "model",
@@ -277,8 +291,15 @@ class QuantTrainer:
         market: str,
         since: datetime,
         until: datetime,
+        dataset: dict[str, Any] | None = None,
     ) -> TrainingResult:
-        merged, feat_cols, benchmark_id, n_instruments = self._build_dataset(market, since, until)
+        if dataset is None:
+            merged, feat_cols, benchmark_id, n_instruments = self._build_dataset(market, since, until)
+        else:      # shared with other models (see backtest.sweep)
+            self._features, self._membership = dataset["features"], dataset["membership"]
+            self._fundamentals_info = dataset.get("fundamentals_info", {"used": False})
+            merged, feat_cols = dataset["merged"], dataset["feat_cols"]
+            benchmark_id, n_instruments = dataset["benchmark_id"], dataset["n_instruments"]
         full = merged
         holdout_df: pl.DataFrame | None = None
         if self._holdout_days > 0:
@@ -353,6 +374,10 @@ class QuantTrainer:
                 last_fold_error = exc
                 logger.warning("  Fold %d failed: %s", fold.fold_id, exc)
 
+        if fold_results and len(fold_results) < self._cv.n_splits:
+            logger.warning(
+                "Only %d of %d cross-validation folds had enough history; the test statistics "
+                "rest on fewer periods than configured.", len(fold_results), self._cv.n_splits)
         if not fold_results:
             from learntrade.core.errors import friendly_error
             why = f" {friendly_error(last_fold_error)}" if last_fold_error else ""
@@ -441,6 +466,7 @@ class QuantTrainer:
                 "tstat_overlap_adjusted": None if np.isnan(t_adj) else float(t_adj),
                 "hit_rate": ic_result.hit_rate,
                 "n_days": ic_result.n_periods, "n_folds": len(fold_results),
+                "n_folds_requested": self._cv.n_splits,
             },
             "calibration": None if calibration is None else {
                 "brier_score": calibration.brier_score, "roc_auc": calibration.roc_auc,

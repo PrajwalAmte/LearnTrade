@@ -63,6 +63,12 @@ def assess_reliability(report: dict[str, Any], last_bar: str | None = None,
     else:
         reasons.append("No untouched final test period was kept aside. Re-train to add one.")
 
+    cv_info = report.get("cv") or {}
+    got, want = cv_info.get("n_folds"), cv_info.get("n_folds_requested")
+    if got is not None and want and got < want:
+        reasons.append(f"Only {got} of {want} test periods had enough history, so the test rests on "
+                       "less data than usual.")
+
     n_inst = report.get("n_instruments", 0)
     if n_inst < MIN_UNIVERSE:
         reasons.append(f"Only {n_inst} stocks in the list. 30 or more gives steadier results.")

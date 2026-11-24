@@ -17,6 +17,8 @@ Raw features (before the cross-sectional normalisation applied in price_volume):
   debt_to_assets   debt / assets                 (balance-sheet risk)
   rev_growth       revenue growth vs the prior annual statement
   earn_growth      net-income growth vs the prior annual statement
+  log_market_value log(shares x price): company size, so small and large companies are not
+                   treated alike (small caps behave differently)
 """
 
 from __future__ import annotations
@@ -28,7 +30,7 @@ import polars as pl
 FUNDAMENTAL_FEATURES = [
     "earnings_yield", "book_to_price", "sales_to_price",
     "roe", "gross_margin", "cfo_to_assets", "debt_to_assets",
-    "rev_growth", "earn_growth",
+    "rev_growth", "earn_growth", "log_market_value",
 ]
 
 _ANNUAL_GAP_DAYS = (300, 430)
@@ -115,7 +117,7 @@ def attach_fundamentals(
         return rows.with_columns(list(empty.values()))
 
     s = statement_ratios(stmts, splits).select(
-        ["instrument_id", "available_at", "eps", "bvps", "sps",
+        ["instrument_id", "available_at", "eps", "bvps", "sps", "_sh",
          "roe", "gross_margin", "cfo_to_assets", "debt_to_assets", "rev_growth", "earn_growth"]
     ).with_columns(_naive("available_at").alias("_avail")).drop("available_at").sort("_avail")
 
@@ -128,8 +130,10 @@ def attach_fundamentals(
         px_ok.then(pl.col("eps") / px).otherwise(None).clip(-1.0, 1.0).alias("earnings_yield"),
         px_ok.then(pl.col("bvps") / px).otherwise(None).clip(-5.0, 5.0).alias("book_to_price"),
         px_ok.then(pl.col("sps") / px).otherwise(None).clip(0.0, 20.0).alias("sales_to_price"),
+        pl.when((px > 0) & (pl.col("_sh") > 0)).then((pl.col("_sh") * px).log())
+        .otherwise(None).alias("log_market_value"),
     ])
-    return joined.drop(["_d", "_avail", "eps", "bvps", "sps"])
+    return joined.drop(["_d", "_avail", "eps", "bvps", "sps", "_sh"])
 
 
 def snapshot(store, instrument_id: str, price: float | None, as_of: datetime) -> dict:

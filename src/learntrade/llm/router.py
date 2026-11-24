@@ -36,10 +36,46 @@ _COST_PER_1K: dict[str, float] = {
 
 @dataclass
 class BudgetTracker:
+    """
+    Per-run and per-day LLM spending caps.
+
+    The day's spend is kept in ``ledger_path`` (JSON keyed by UTC date) so the daily cap holds
+    across restarts and across terminal commands, each of which is a new process.
+    """
     per_run_limit: float
     per_day_limit: float
+    ledger_path: Path | None = None
     _run_spent: float = field(default=0.0, init=False)
     _day_spent: float = field(default=0.0, init=False)
+
+    def __post_init__(self) -> None:
+        self._day_spent = self._ledger().get(self._today(), 0.0)
+
+    @staticmethod
+    def _today() -> str:
+        from datetime import datetime, timezone
+        return datetime.now(tz=timezone.utc).date().isoformat()
+
+    def _ledger(self) -> dict[str, float]:
+        import json
+        if not self.ledger_path:
+            return {}
+        try:
+            return {k: float(v) for k, v in json.loads(Path(self.ledger_path).read_text()).items()}
+        except (FileNotFoundError, ValueError):
+            return {}
+
+    def _save(self, cost: float) -> None:
+        import json
+        if not self.ledger_path:
+            return
+        led = self._ledger()                  # re-read: another process may have spent meanwhile
+        today = self._today()
+        led[today] = led.get(today, 0.0) + cost
+        led = dict(sorted(led.items())[-31:])
+        Path(self.ledger_path).parent.mkdir(parents=True, exist_ok=True)
+        Path(self.ledger_path).write_text(json.dumps(led))
+        self._day_spent = led[today]
 
     def check(self, estimated_cost: float) -> None:
         if self._run_spent + estimated_cost > self.per_run_limit:
@@ -47,6 +83,8 @@ class BudgetTracker:
                 f"Run budget ${self.per_run_limit:.2f} would be exceeded "
                 f"(spent ${self._run_spent:.4f}, requesting ${estimated_cost:.4f})"
             )
+        if self.ledger_path:
+            self._day_spent = self._ledger().get(self._today(), 0.0)
         if self._day_spent + estimated_cost > self.per_day_limit:
             raise BudgetExceededError(
                 f"Daily budget ${self.per_day_limit:.2f} would be exceeded"
@@ -54,7 +92,10 @@ class BudgetTracker:
 
     def record(self, cost: float) -> None:
         self._run_spent += cost
-        self._day_spent += cost
+        if self.ledger_path:
+            self._save(cost)
+        else:
+            self._day_spent += cost
 
     @property
     def run_spent(self) -> float:
@@ -80,16 +121,19 @@ class LLMRouter:
     """
 
     def __init__(self, cache_db_path: Path | None = None) -> None:
-        cfg = get_config().llm
+        app_cfg = get_config()
+        cfg = app_cfg.llm
+        data_dir = Path(app_cfg.workspace.data_dir)
         self._enabled = cfg.enabled
-        self._budget = BudgetTracker(cfg.budget_usd_per_run, cfg.budget_usd_per_day)
+        self._budget = BudgetTracker(cfg.budget_usd_per_run, cfg.budget_usd_per_day,
+                                     ledger_path=data_dir / "llm_spend.json")
         self._cache_enabled = cfg.cache
         self._model_cfg = cfg.models
         self._clients: dict[LlmTask, Any] = {}
 
         if self._cache_enabled:
             from learntrade.llm.cache import LLMCache
-            path = cache_db_path or Path("data/llm_cache.duckdb")
+            path = cache_db_path or data_dir / "llm_cache.duckdb"
             self._cache: LLMCache | None = LLMCache(path)
         else:
             self._cache = None

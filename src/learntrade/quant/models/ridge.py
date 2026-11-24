@@ -6,6 +6,8 @@ Uses RidgeCV (leave-one-out) to select regularisation automatically.
 from __future__ import annotations
 
 import pickle
+
+from learntrade.quant.models import _compat
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -110,21 +112,18 @@ class RidgeReturnModel:
         ]
 
     def save(self, path: str) -> None:
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "wb") as f:
-            pickle.dump({
+        _compat.dump(path, {
                 "scaler": self._scaler, "model": self._model,
                 "feature_names": self._feature_names,
                 "horizon": self.horizon,
                 "feature_set_version": self.feature_set_version,
                 "residual_std": self._residual_std,
                 "medians": getattr(self, "_medians", None),
-            }, f)
+            })
 
     @classmethod
     def load(cls, path: str) -> "RidgeReturnModel":
-        with open(path, "rb") as f:
-            s = pickle.load(f)
+        s = _compat.load(path)
         obj = cls(s["horizon"], s["feature_set_version"])
         obj._scaler = s["scaler"]
         obj._model = s["model"]

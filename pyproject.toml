@@ -40,6 +40,7 @@ dependencies = [
     "tenacity>=8.3",
     "psutil>=6.0",
     "mcp>=2.3.0",
+    "openpyxl>=3.1.5",
 ]
 
 [project.optional-dependencies]

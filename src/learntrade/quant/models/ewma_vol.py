@@ -6,6 +6,8 @@ No fitting required; parameters are fixed.
 from __future__ import annotations
 
 import pickle
+
+from learntrade.quant.models import _compat
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -66,13 +68,10 @@ class EWMAVolModel:
         return result
 
     def save(self, path: str) -> None:
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "wb") as f:
-            pickle.dump({"span": self.span, "horizon": self.horizon,
-                         "feature_set_version": self.feature_set_version}, f)
+        _compat.dump(path, {"span": self.span, "horizon": self.horizon,
+                         "feature_set_version": self.feature_set_version})
 
     @classmethod
     def load(cls, path: str) -> "EWMAVolModel":
-        with open(path, "rb") as f:
-            s = pickle.load(f)
+        s = _compat.load(path)
         return cls(s["horizon"], s["feature_set_version"], s["span"])

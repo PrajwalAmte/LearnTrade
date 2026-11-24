@@ -35,6 +35,13 @@ Last reviewed against the code on 2026-11-20 (updated after fundamentals).
 | Company financials | Yahoo annual and quarterly statements (revenue, profit, EPS, equity, debt, cash flow) stored point-in-time: a statement counts as public 60 days (quarterly) or 90 days (annual) after its period ends, because the real filing date is not provided. Nine features: earnings yield, book/price, sales/price, return on equity, gross margin, cash flow/assets, debt/assets, revenue growth, profit growth. Shown on each stock's page and used automatically in training once stored | Unit tests; live run on 30 NSE stocks (see note below) |
 | Index membership over time | Training and testing use "who was in the index on each date" when a membership history exists; S&P 500 join dates are built in (`universe fetch-index SP500`), any market via CSV (`--date-column` / `--added-column`) | Unit tests; live run on the S&P 500 |
 | MCP server (`learntrade mcp`) | Read-only tools (`status`, `rank`, `stock`, `reliability`, `evaluate`) over stdio for Claude Code, Codex and other MCP clients | Unit tests over a real stdio connection; tried with the MCP client library on real NSE and S&P 500 data |
+| Evidence gate | Outlook, probability and "would rank" are withheld when testing found no edge, halved for an early signal; funds/ETFs/indices and stocks unlike the training list are never scored (price facts only). Same rules in the web page, MCP tools and terminal | Unit tests; live run on NSE with small caps and gold/silver ETFs |
+| Portfolio import and analysis | Zerodha/Groww/generic CSV and Excel holdings (header auto-detection, several sheets and files); holdings resolved via Yahoo search (ISIN, symbol, name) and AMFI scheme list; prices from Yahoo, fund NAV history from mfapi.in; value, P&L, allocation by asset class/sector/size, concentration, last-year risk of the current mix, correlated pairs, split/bonus adjustment of stale files. Web page, CLI and MCP tool | Unit tests; live run on a 10-holding sample (stocks, gold/silver ETFs, two funds) |
+| Nifty 500 and size groups | `universe fetch-index NIFTY500` (also NIFTY100, NIFTYMIDCAP150, NIFTYSMALLCAP250) from NSE's free lists, today's members only; "Use the Nifty 500" button | Live download (501 members); unit tests |
+| Company size feature | log market value (shares x price) added to the financial features (feature set v4) | Unit tests |
+| Evaluation sweep (`learntrade sweep`) | Every group x horizon x feature set x model judged by one fixed rule (CV rank IC >= 0.02, adjusted t >= 2, untouched period > 0), with the number of passes expected by chance; never replaces saved models | Unit tests; live run on the Nifty 500 (see note below) |
+| Model file safety | Model and calibrator files record library versions; a mismatch is treated as "needs retraining" instead of loading a possibly broken model | Unit tests |
+| LLM spending cap | The daily cap is kept in `data/llm_spend.json`, so it holds across restarts and terminal commands | Unit tests |
 | Web page | Demo mode, real-stock setup, ranking, stock page, update data, reliability panel, single-stock lookup | Tried in a browser |
 
 ## Implemented, experimental
@@ -55,6 +62,9 @@ Last reviewed against the code on 2026-11-20 (updated after fundamentals).
 | Terminal setup wizard (`learntrade init`) | Exists; not the main path |
 
 ## Designed, not implemented
+
+- Looking inside mutual funds (their monthly stock holdings), so sector and size cover fund holdings too
+- Historical profit/loss from a tradebook (only current holdings are imported)
 
 - Browser setup wizard and Settings pages (the old `/api/setup/*` routes are placeholders)
 - Fundamentals from FMP or Polygon (stubs that return nothing); a source with full filing history and true filing dates for non-US markets (non-US stocks use Yahoo, about three years)
@@ -98,3 +108,21 @@ test window 2026-05-04 to 2026-10-22) rank IC moved from price-only to price plu
 ridge -0.078 to -0.071, LightGBM -0.053 to -0.046, LightGBM ranker -0.049 to -0.024. All three
 shift toward zero but stay inside the error range, so there is still no measured edge on this
 group from these inputs.
+
+## Nifty 500 sweep (measured 2026-11-23)
+
+499 Nifty 500 stocks, prices from June 2018, today's index lists (companies that left are
+missing). 20 configurations: 4 groups (whole list, Nifty 100, Midcap 150, Smallcap 250) x
+2 horizons (1 and 3 months) x price-only / price + financials, ridge; plus LightGBM on the whole
+list. Reports: `research/reports/20261123_173725_XNSE_sweep.md` and `..._174927_...`.
+
+**0 of 20 passed** the fixed rule (about 0.5 would pass by chance).
+
+- Adding financials raised the cross-validation rank IC in 9 of 10 pairs, and three
+  configurations cleared the CV bar on their own (Smallcap 250, 1 month: +0.052, t 3.05;
+  Midcap 150, 1 month: +0.041, t 2.22). But all three were negative on the untouched last
+  six months (-0.074 and -0.017), so none passes.
+- Price-only signals show nothing in any group.
+- Financials from the free source start around 2022, so the earliest test periods ran without
+  them. A longer financial history, and repeating the untouched test on several periods instead
+  of one, are what it would take to tell a real effect from a lucky stretch.

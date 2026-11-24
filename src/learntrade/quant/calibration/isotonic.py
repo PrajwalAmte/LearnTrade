@@ -30,13 +30,13 @@ class IsotonicCalibrator:
         return np.clip(self._ir.transform(raw_scores), 0.0, 1.0)
 
     def save(self, path: str) -> None:
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "wb") as f:
-            pickle.dump(self._ir, f)
+        from learntrade.quant.models import _compat
+        _compat.dump(path, {"isotonic": self._ir})
 
     @classmethod
     def load(cls, path: str) -> "IsotonicCalibrator":
+        from learntrade.quant.models import _compat
         cal = cls()
-        with open(path, "rb") as f:
-            cal._ir = pickle.load(f)
+        s = _compat.load(path)
+        cal._ir = s["isotonic"] if isinstance(s, dict) and "isotonic" in s else s
         return cal

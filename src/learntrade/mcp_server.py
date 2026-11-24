@@ -25,7 +25,10 @@ from learntrade import __version__ as _version
 
 INSTRUCTIONS = """\
 LearnTrade ranks stocks in the user's own list by expected performance versus the market and
-reports how well that ranking has worked in testing. Start with `status` to see which markets
+reports how well that ranking has worked in testing. When testing found no edge, outlook and
+probability fields are null and `forecast_withheld` is true: report the order only as a sort of
+the list, never as a prediction, and do not estimate the missing numbers yourself. ETFs, funds
+and indices are never scored; for those, report the measured `price_summary` only. Start with `status` to see which markets
 have data, then `rank` for a market, and `stock` for one company. Always pass along the
 `reliability` verdict with any ranking: it says how much weight the ranking deserves. This is
 information, not financial advice, and LearnTrade never trades.
@@ -101,6 +104,11 @@ def tool_rank(market: str, horizon: str = "swing_20d", model: str = "ridge", top
         "strongest": [keep(r) for r in rows[:top]],
         "weakest": [keep(r) for r in rows[-top:]] if len(rows) > top else [],
         "reliability": res["reliability"],
+        # When there is no proven edge, outlook and probabilities are withheld (null) on purpose.
+        # Do not invent them or present the order as a forecast.
+        "forecast_withheld": res.get("gated", False),
+        "why_withheld": res.get("gate_note"),
+        "not_ranked_funds_or_indices": res.get("not_ranked", []),
         "units": "expected_return is expected excess return over the benchmark for the horizon "
                  "(0.02 = +2%); p_up is the chance it beats the benchmark over the horizon (not the chance its price rises); risk is the volatility estimate.",
     }
@@ -160,6 +168,20 @@ def tool_evaluate(market: str, horizon: str = "swing_20d", holdout_days: int = 1
             "note": "Models are fit on the earlier data and scored on the untouched final days."}
 
 
+def tool_portfolio() -> dict[str, Any]:
+    from learntrade.api.routes import workspace as w
+    d = _call(w.portfolio)
+    if not d.get("ready"):
+        raise ToolError("No portfolio imported yet. Import a broker holdings file first: the web "
+                        "page's 'My portfolio', or `learntrade portfolio import <file>`.")
+    keep = ("name", "id", "kind", "asset_class", "sector", "size", "weight", "value", "invested",
+            "pnl", "pnl_pct", "return_1y", "volatility", "from_1y_high", "price_source", "note")
+    d["holdings"] = [{k: h.get(k) for k in keep} for h in d["holdings"]]
+    d["about"] = ("Measured facts about the saved holdings (values in INR). 'worth_knowing' lists "
+                  "concentrations and losses; it is description, not advice. Nothing here is a forecast.")
+    return d
+
+
 # ── Server ────────────────────────────────────────────────────────────────────
 
 def build_server():
@@ -190,6 +212,10 @@ def build_server():
     server.tool(name="reliability", description="How well the model behind a market's ranking did in "
                 "testing: verdict, reasons and the numbers (rank IC, untouched final test, stock-list "
                 "basis).", annotations=ro)(tool_reliability)
+    server.tool(name="portfolio", description="The user's imported holdings: value, profit/loss, "
+                "allocation by asset class, sector and company size, concentration, last-year risk of "
+                "the current mix, and plain facts worth knowing (e.g. a sector over 30%). Measured, "
+                "not predicted.", annotations=ro)(tool_portfolio)
     server.tool(name="evaluate", description="Fair out-of-sample comparison of a momentum baseline, ridge, "
                 "LightGBM and the ranker on the same stocks, dates and costs. Can take from seconds "
                 "to several minutes depending on the number of stocks.", annotations=ro)(tool_evaluate)

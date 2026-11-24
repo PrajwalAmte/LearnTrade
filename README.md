@@ -65,6 +65,8 @@ To stop LearnTrade, close the black starter window.
 2. Type the stock symbols you care about, at least 8, separated by commas. Use the short code, like `RELIANCE, TCS, INFY, HDFCBANK` for India or `AAPL, MSFT, GOOGL, AMZN` for the USA.
 3. Click **Download data and set up** and wait. The first time takes a few minutes (it downloads three years of prices and trains itself).
 
+In India you can skip typing: click **Use the Nifty 500**. It covers large, mid and small companies, so the model learns from companies like the ones most people actually hold, not only the biggest 30 or 50. It takes 10 to 15 minutes the first time.
+
 In the USA you can skip typing: click **Use the whole S&P 500**. It loads all ~500 companies together with the date each one joined the index (a few minutes longer the first time).
 
 ### The main screen
@@ -78,6 +80,23 @@ A ranked list of your stocks. Click any stock to see its details, key financials
 | **Bumpiness** | How much the stock tends to jump around. Higher means a rougher ride. |
 | **Typical range** | Where most outcomes are expected to land. It is usually wide. That is the honest picture. |
 | **Looking ahead** | Choose about 1 week, 1 month or 3 months. |
+
+### My portfolio
+
+Click **My portfolio** (top right), or **Analyse my portfolio** on the first screen, and upload the holdings file from your broker. You do not need to set up a stock list first.
+
+- **Which files:** Zerodha (Kite holdings CSV, or the Console holdings Excel file with its stocks and mutual-funds sheets), Groww (stocks and mutual funds statements), or any CSV or Excel file with a name, symbol or ISIN column and a quantity column. You can upload a stocks file and a funds file together.
+- **What it does:** finds each holding (NSE/BSE symbols by ISIN, symbol or name; mutual funds through AMFI's official scheme list), downloads prices and daily fund NAVs, and shows:
+  - value today, what you paid, and profit or loss, per holding and in total
+  - what you own: Indian stocks, equity funds, gold, silver, debt, international
+  - your directly held stocks by sector and by company size (large, mid, small)
+  - concentration: your biggest holding, your top five, and how many equal-sized holdings the portfolio behaves like
+  - the last year for your current mix: return, how much it swings, its worst fall, and holdings that move almost in step
+  - **Worth knowing:** plain facts such as "Financial Services is 65% of your stocks" or "this holding is 46% below what you paid". These describe your portfolio; they are not advice to buy or sell.
+- **Splits and bonuses:** if your file was exported before a split or bonus (for example HDFC Bank's 1:1 bonus in August 2025), the quantity and cost are put on today's basis automatically, and the page says so.
+- **Not yet:** LearnTrade cannot see inside mutual funds, so the sector and size breakdown covers stocks you hold directly. Click **Update prices** to refresh.
+
+From a terminal: `uv run learntrade portfolio import holdings.csv funds.xlsx`, then `uv run learntrade portfolio show`.
 
 ### Check any single stock
 
@@ -94,14 +113,21 @@ Above the list, a box says how the model did when it was tested on past data, in
 | **Not working here** | For this group of stocks the ranking did not beat chance. More stocks or a longer history often helps |
 | **Quick estimate** | No trained model yet; the order reflects recent price moves. Tap **Update data** to train one |
 
+**Numbers only appear when they are earned.** If testing found no edge ("Not working here" or "Quick estimate"), LearnTrade does not show an outlook, a "chance it beats the market" or a "would rank N of M". You still see your list in the model's score order, how much each stock moves, its financials and news, and the page says plainly why the forecast is hidden. With an "Early signal" the numbers are shown but toned down by half; with "Looks useful" they are shown in full.
+
+Two more cases never get a score:
+
+- **Funds and indices** (gold or silver ETFs, index funds): they are not companies, so they get measured facts only (returns, volatility, worst fall from a high).
+- **Stocks unlike your list**: when you check a stock that is much smaller or much more volatile than every stock the model learned from (for example a small-cap checked against a list of large caps), it says so and does not score it.
+
 Open **Why, and the numbers behind it** to see the details. The most useful number is the **final untouched test**: the most recent months are kept aside and never used for learning, so it shows how the model did on data it had not seen.
 
 ### Stock lists and history
 
 When a stock list is today's list, companies that dropped out of an index in the past are missing from the history, which can make old results look a little rosier than they were. LearnTrade handles this for you where it can:
 
-- **S&P 500:** the **Use the whole S&P 500** button (or `uv run leantrade universe fetch-index SP500`) loads every member with its join date, so a stock is only used from the day it actually joined.
-- **Any market:** if you have a file of index membership over time, import it with `uv run leantrade universe import file.csv --mic XNSE --date-column date` (one row per date and symbol), or with `--added-column` if it lists the date each stock joined. LearnTrade then uses "who was in the index on that date" for training and testing.
+- **S&P 500:** the **Use the whole S&P 500** button (or `uv run learntrade universe fetch-index SP500`) loads every member with its join date, so a stock is only used from the day it actually joined.
+- **Any market:** if you have a file of index membership over time, import it with `uv run learntrade universe import file.csv --mic XNSE --date-column date` (one row per date and symbol), or with `--added-column` if it lists the date each stock joined. LearnTrade then uses "who was in the index on that date" for training and testing.
 - The box above the list tells you which basis was used.
 
 ### Keeping it fresh
@@ -216,6 +242,7 @@ What the assistant can ask:
 | `stock` | One company: forecast, key financials, recent headlines, reliability. A stock outside your list is only fetched if the assistant passes `download=True` |
 | `reliability` | How well the ranking has worked in testing |
 | `evaluate` | The out-of-sample comparison of all models (can take a few minutes on big lists) |
+| `portfolio` | Your imported holdings: value, profit/loss, allocation, concentration, last-year risk and "worth knowing" facts |
 
 Set up your data first with the web page (so there is something to ask about), then connect the assistant. Replace `/path/to/LearnTrade` with the folder you unzipped.
 
@@ -257,7 +284,7 @@ By default it reads the `data` folder inside the LearnTrade folder. To point it 
 | A stock is missing | The symbol may be wrong. Check it on your broker's app or a finance website |
 | Mac: "LightGBM needs the OpenMP library" | Open Terminal and run `brew install libomp`. The default model works without it |
 
-For a health check, open a terminal in the folder and run `uv run leantrade doctor`. It explains any problems in plain language.
+For a health check, open a terminal in the folder and run `uv run learntrade doctor`. It explains any problems in plain language.
 
 ---
 
@@ -286,10 +313,12 @@ For a health check, open a terminal in the folder and run `uv run leantrade doct
 The full technical documentation (architecture, command-line usage, adding a new country, configuration, testing methodology, roadmap) is in [docs/TECHNICAL.md](docs/TECHNICAL.md). A few useful commands:
 
 ```bash
-uv run leantrade --help          # all commands
-uv run leantrade news pull       # fetch headlines
-uv run leantrade rank            # ranked list in the terminal
-uv run leantrade evaluate --market XNSE   # fair, out-of-sample comparison of all models
+uv run learntrade --help          # all commands
+uv run learntrade news pull       # fetch headlines
+uv run learntrade rank            # ranked list in the terminal
+uv run learntrade evaluate --market XNSE   # fair, out-of-sample comparison of all models
+uv run learntrade sweep --market XNSE --groups all,NIFTY100,NIFTYMIDCAP150,NIFTYSMALLCAP250
+                                           # test many setups against one fixed pass rule
 uv run pytest                    # run the test suite
 ```
 

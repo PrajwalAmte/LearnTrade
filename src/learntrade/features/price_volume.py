@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from learntrade.data.store.pit import PITStore
 
 FEATURE_SET_VERSION = "price_volume_v2_cs"
-FEATURE_SET_VERSION_FUND = "price_fund_v3_cs"
+FEATURE_SET_VERSION_FUND = "price_fund_v4_cs"   # v4: + company size
 
 _MIN_FUNDAMENTAL_STOCKS = 5   # need a cross-section for the normalisation to mean anything
 

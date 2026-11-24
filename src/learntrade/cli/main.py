@@ -337,7 +337,14 @@ def _load_trained_model(
     model_path, cal_path = _model_artifact_paths(cfg, market, horizon, model_name)
     if not model_path.exists():
         return None, None
-    model = model_cls.load(str(model_path))
+    from learntrade.quant.models._compat import ModelCompatibilityError
+    try:
+        model = model_cls.load(str(model_path))
+    except ModelCompatibilityError as exc:
+        # Saved by different library versions: treat as "not trained" rather than risk a
+        # model that loads but behaves differently.
+        logging.getLogger(__name__).warning("%s", exc)
+        return None, None
     from learntrade.features.price_volume import default_feature_set
     # The feature set depends on the data: company financials are included once stored.
     expected = default_feature_set(store, market).id if store is not None else None
@@ -352,7 +359,11 @@ def _load_trained_model(
     calibrator = None
     if cal_path.exists():
         from learntrade.quant.calibration.isotonic import IsotonicCalibrator
-        calibrator = IsotonicCalibrator.load(str(cal_path))
+        try:
+            calibrator = IsotonicCalibrator.load(str(cal_path))
+        except ModelCompatibilityError as exc:
+            logging.getLogger(__name__).warning("%s", exc)
+            calibrator = None
     return model, calibrator
 
 
@@ -470,8 +481,9 @@ def _forecast_outside_universe(
         obs = list(provider.fetch(req))
     except Exception as exc:
         return None, {}, f"Could not download prices for {iid}: {exc}"
-    if len(obs) < 60:
-        return None, {}, (f"Not enough price history for {iid} ({len(obs)} days found). "
+    n_bars = sum(1 for o in obs if o.kind == "bar")
+    if n_bars < 60:
+        return None, {}, (f"Not enough price history for {iid} ({n_bars} days found). "
                           f"Check the symbol.")
     store.ingest(obs)
     try:   # financials for the same stock, so it is scored on the same features as the list
@@ -688,19 +700,74 @@ def rank(
             f"--market {market} --horizon {horizon}` for calibrated forecasts.[/]"
         )
 
+    from learntrade.api.routes.workspace import _reliability
+    from learntrade.quant.trust import NO_EDGE_NOTE, QUICK_NOTE, gate_forecast
+    rough = source.startswith("raw momentum")
+    level = _reliability(market, horizon, model, rough).get("level")
     ranked = sorted(forecasts, key=lambda f: f.expected_return, reverse=True)[:top]
     console.print(f"\n[bold]Top {len(ranked)} — {market} {horizon} as of {datetime.now(tz=timezone.utc).date()}[/] [dim]({source})[/]\n")
     for i, fc in enumerate(ranked, 1):
-        console.print(
-            f"  {i:2d}. {str(fc.instrument_id):20s}  "
-            f"ExpRet={fc.expected_return:+.2%}  P(pos)={fc.p_positive:.1%}  "
-            f"Vol={fc.volatility:.1%}"
-        )
+        g = gate_forecast(fc.expected_return, fc.p_positive, fc.quantiles.q05, fc.quantiles.q95, level)
+        nums = ("" if g["gated"] else
+                f"ExpRet={g['expected_return']:+.2%}  P(beat mkt)={g['p_up']:.1%}  ")
+        console.print(f"  {i:2d}. {str(fc.instrument_id):20s}  {nums}Vol={fc.volatility:.1%}")
+    if gate_forecast(0.0, 0.5, 0.0, 0.0, level)["gated"]:
+        console.print(f"\n[yellow]{QUICK_NOTE if rough else NO_EDGE_NOTE}[/]")
 
 
 # ---------------------------------------------------------------------------
 # evaluate
 # ---------------------------------------------------------------------------
+
+
+@app.command()
+def sweep(
+    market: str = typer.Option("XNSE", help="MIC code"),
+    since: str = typer.Option("2019-01-01", help="Data start date YYYY-MM-DD"),
+    horizons: str = typer.Option("swing_20d,positional_60d", help="Comma-separated horizons"),
+    features: str = typer.Option("price,price+fund", help="Comma-separated: price, price+fund"),
+    models: str = typer.Option("ridge", help="Comma-separated: ridge, lgbm, lgbm_rank"),
+    groups: str = typer.Option(
+        "all", help="Comma-separated stock groups: all (the whole list) and/or built-in NSE "
+                    "indexes NIFTY100, NIFTYMIDCAP150, NIFTYSMALLCAP250 (members of your list only)"),
+    holdout_days: int = typer.Option(120, help="Most recent trading days kept untouched"),
+) -> None:
+    """Test many configurations against one fixed pass rule, and say how many pass by chance."""
+    from learntrade.backtest.sweep import run_sweep, to_markdown
+    from learntrade.core.config import get_config
+    from learntrade.data.index_history import SUPPORTED, fetch_index
+    from learntrade.data.store.pit import PITStore
+
+    _setup_logging("WARNING")
+    cfg = get_config()
+    since_dt = datetime.strptime(since, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    group_sets: dict[str, set[str] | None] = {}
+    for g in [x.strip() for x in groups.split(",") if x.strip()]:
+        if g.lower() == "all":
+            group_sets["Whole list"] = None
+            continue
+        key = g.upper()
+        if key not in SUPPORTED:
+            console.print(f"[red]Unknown group {g!r}. Use all or one of {', '.join(SUPPORTED)}.[/]")
+            raise typer.Exit(1)
+        _mic, rows = fetch_index(key)
+        group_sets[SUPPORTED[key][1]] = {sym for sym, _d in rows}
+    model_map = {m.strip(): _require_model_class(m.strip()) for m in models.split(",") if m.strip()}
+    with PITStore(cfg.workspace.data_dir) as store:
+        with console.status("Training and testing every configuration…"):
+            res = run_sweep(store, market, since_dt, datetime.now(tz=timezone.utc), group_sets,
+                            [h.strip() for h in horizons.split(",") if h.strip()],
+                            [f.strip() for f in features.split(",") if f.strip()],
+                            model_map, holdout_days=holdout_days)
+    md = to_markdown(res)
+    out_dir = Path("research/reports")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
+    path = out_dir / f"{stamp}_{market}_sweep.md"
+    path.write_text(md)
+    path.with_suffix(".json").write_text(json.dumps(res.to_dict(), indent=2, default=str))
+    console.print(md)
+    console.print(f"Saved: [cyan]{path}[/] (and .json)")
 
 
 @app.command()
@@ -786,14 +853,23 @@ def analyze(
             console.print(f"[red]No data for {instrument}. Run `learntrade data pull`.[/]")
             raise typer.Exit(1)
 
+        from learntrade.api.routes.workspace import _reliability
+        from learntrade.quant.trust import NO_EDGE_NOTE, QUICK_NOTE, gate_forecast
+        _rough = source.startswith("raw momentum")
+        g = gate_forecast(fc.expected_return, fc.p_positive, fc.quantiles.q05, fc.quantiles.q95,
+                          _reliability(market, horizon, model, _rough).get("level"))
         console.print(f"\n[bold]{instrument}[/] — {horizon} [dim]({source})[/]")
-        console.print(
-            f"  Expected excess return: [bold]{fc.expected_return:+.2%}[/]  "
-            f"P(positive): {fc.p_positive:.1%}  Volatility: {fc.volatility:.1%}"
-        )
-        console.print(
-            f"  Range (5–95%): {fc.quantiles.q05:+.2%} to {fc.quantiles.q95:+.2%}"
-        )
+        if g["gated"]:
+            console.print(f"  [yellow]{QUICK_NOTE if _rough else NO_EDGE_NOTE}[/]")
+            console.print(f"  Volatility: {fc.volatility:.1%}  Usual swing vs. the market: "
+                          f"{g['low']:+.2%} to {g['high']:+.2%}")
+            outside_ctx = None
+        else:
+            console.print(
+                f"  Expected excess return: [bold]{g['expected_return']:+.2%}[/]  "
+                f"P(beats the market): {g['p_up']:.1%}  Volatility: {fc.volatility:.1%}"
+            )
+            console.print(f"  Range (5–95%): {g['low']:+.2%} to {g['high']:+.2%}")
         if outside_ctx:
             console.print(
                 f"  Would rank [bold]{outside_ctx['would_rank']}[/] of {outside_ctx['of']} "
@@ -1035,16 +1111,99 @@ app.add_typer(portfolio_app, name="portfolio")
 
 @portfolio_app.command("import")
 def portfolio_import(
-    file: Path = typer.Argument(help="Holdings CSV or XLSX file"),
-    mic: str = typer.Option("XNYS", help="Exchange MIC for the holdings"),
+    files: list[Path] = typer.Argument(help="Holdings exports from your broker (CSV or XLSX). "
+                                            "Several files are combined, e.g. stocks + funds."),
 ) -> None:
-    """Import holdings from a broker-exported CSV / XLSX file."""
-    from learntrade.execution.brokers.csv_import import CsvImportAdapter
-    adapter = CsvImportAdapter(file, mic)
-    holdings = adapter.holdings()
-    console.print(f"Imported [bold]{len(holdings)}[/] holdings from {file}")
-    for h in holdings:
-        console.print(f"  {h.instrument_id}  qty={h.quantity}")
+    """Import your holdings (Zerodha, Groww and similar exports) and download their prices."""
+    from learntrade.core.config import get_config
+    from learntrade.data.store.pit import PITStore
+    from learntrade.portfolio.book import import_portfolio
+
+    _setup_logging("WARNING")
+    cfg = get_config()
+    with PITStore(cfg.workspace.data_dir) as store:
+        try:
+            res = import_portfolio(store, cfg.workspace.data_dir,
+                                   [(Path(f).read_bytes(), Path(f).name) for f in files])
+        except ValueError as exc:
+            console.print(f"[red]{exc}[/]")
+            raise typer.Exit(1) from None
+    for name, cols in res["columns"].items():
+        console.print(f"[dim]{name}: " + ", ".join(f"{k}={v!r}" for k, v in cols.items()) + "[/]")
+    found = [h for h in res["holdings"] if h["id"]]
+    console.print(f"[green]Imported {len(res['holdings'])} holdings[/] ({len(found)} found on "
+                  f"NSE/BSE or AMFI).")
+    for h in res["holdings"]:
+        if not h["id"]:
+            console.print(f"  [yellow]not found:[/] {h['name']}")
+    for s in res["skipped"]:
+        console.print(f"  [dim]skipped: {s}[/]")
+    for iid, why in res["price_problems"].items():
+        console.print(f"  [yellow]no prices for {iid}: {why}[/]")
+    console.print("Run [bold]learntrade portfolio show[/] to see the analysis.")
+
+
+@portfolio_app.command("refresh")
+def portfolio_refresh() -> None:
+    """Download the latest prices and NAVs for your saved holdings."""
+    from learntrade.core.config import get_config
+    from learntrade.data.store.pit import PITStore
+    from learntrade.portfolio.book import refresh_prices
+
+    _setup_logging("WARNING")
+    cfg = get_config()
+    with PITStore(cfg.workspace.data_dir) as store:
+        problems = refresh_prices(store, cfg.workspace.data_dir)
+    console.print("[green]Prices updated.[/]" + (f" Problems: {problems}" if problems else ""))
+
+
+@portfolio_app.command("show")
+def portfolio_show() -> None:
+    """Allocation, concentration, profit/loss and risk of your saved holdings."""
+    from learntrade.core.config import get_config
+    from learntrade.data.store.pit import PITStore
+    from learntrade.portfolio.analysis import analyse
+    from learntrade.portfolio.book import load_holdings
+
+    cfg = get_config()
+    holdings, meta = load_holdings(cfg.workspace.data_dir)
+    if not holdings:
+        console.print("[yellow]No holdings yet. Run `learntrade portfolio import <file>`.[/]")
+        raise typer.Exit(1)
+    with PITStore(cfg.workspace.data_dir) as store:
+        a = analyse(store, holdings)
+    t = a["totals"]
+    money = lambda v: "n/a" if v is None else f"₹{v:,.0f}"
+    console.print(f"\n[bold]Portfolio[/] (imported {meta.get('imported_at', '')[:10]} from {meta.get('source')})")
+    line = f"  Value {money(t['value'])}"
+    if t["pnl"] is not None:
+        line += f"   invested {money(t['invested'])}   profit/loss {money(t['pnl'])} ({t['pnl_pct']:+.1%})"
+    console.print(line)
+    for title, key in (("By asset class", "asset_class"), ("Stocks by sector", "sector"),
+                       ("Stocks by company size", "size")):
+        if a["allocation"][key]:
+            console.print(f"\n[bold]{title}[/]")
+            for x in a["allocation"][key]:
+                console.print(f"  {x['label']:28s} {x['weight']:6.1%}  {money(x['value'])}")
+    c = a["concentration"]
+    console.print(f"\n[bold]Concentration[/]  largest: {c['largest']['name']} {c['largest']['weight']:.0%}"
+                  f"   top 5: {c['top5_weight']:.0%}   behaves like ~{c['effective_holdings']:.0f} "
+                  f"equal holdings" if c["largest"] else "")
+    r = a["risk"]
+    if r:
+        console.print(f"[bold]Last year, current mix[/]  return {r['return_period']:+.1%}   "
+                      f"volatility {r['volatility']:.0%}   worst fall {r['max_drawdown']:.0%}")
+    console.print("\n[bold]Holdings[/]")
+    for h in a["holdings"]:
+        w = f"{h['weight']:6.1%}" if h["weight"] is not None else "   n/a"
+        pl_ = f"{h['pnl_pct']:+7.1%}" if h["pnl_pct"] is not None else "       "
+        console.print(f"  {w}  {pl_}  {h['name'][:44]:44s} [dim]{h['asset_class']}[/]")
+    if a["worth_knowing"]:
+        console.print("\n[bold]Worth knowing[/]")
+        for f in a["worth_knowing"]:
+            console.print(f"  - {f}")
+    for n in a["notes"]:
+        console.print(f"[dim]  {n}[/]")
 
 
 # ---------------------------------------------------------------------------
@@ -1346,7 +1505,8 @@ def universe_import(
 
 @universe_app.command("fetch-index")
 def universe_fetch_index(
-    index: str = typer.Argument(help="Index name. Built in: SP500"),
+    index: str = typer.Argument(help="Index name. Built in: SP500 (with join dates), NIFTY500, "
+                                     "NIFTY100, NIFTYMIDCAP150, NIFTYSMALLCAP250 (today's members)"),
     since: str = typer.Option("2015-01-01", help="Start of your data window YYYY-MM-DD"),
 ) -> None:
     """Download an index's members with their join dates (removes 'joined after winning' bias)."""
@@ -1364,7 +1524,13 @@ def universe_fetch_index(
         console.print(f"[red]{exc}[/]")
         raise typer.Exit(1) from None
     floor = datetime.strptime(since, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-    snaps = snapshots_from_added_dates({sym: d for sym, d in rows}, floor)
+    dated = any(d for _s, d in rows)
+    if dated:
+        snaps = snapshots_from_added_dates({sym: d for sym, d in rows}, floor)
+    else:
+        # No join dates published: one snapshot of today's members, stamped now so a later
+        # re-download (indexes are rebalanced twice a year) replaces it.
+        snaps = [(datetime.now(tz=timezone.utc), sorted({sym for sym, _d in rows}))]
     obs = [Observation(instrument_id=None, source_id=f"index:{index.upper()}", kind="universe",
                        event_time=d, available_at=d,
                        payload={"mic": mic, "members": members}, pit_level="partial")
@@ -1372,6 +1538,11 @@ def universe_fetch_index(
     with PITStore(cfg.workspace.data_dir) as store:
         n = store.ingest(obs)
     joined_late = sum(1 for _s, d in rows if d and d > floor)
+    if not dated:
+        console.print(f"[green]Imported {index.upper()} for {mic}[/]: {len(rows)} members (today's list).")
+        console.print("[dim]The index provider publishes today's members only, so past results use "
+                      "today's list (companies that left the index are missing).[/]")
+        return
     console.print(
         f"[green]Imported {index.upper()} for {mic}[/]: {len(rows)} members, "
         f"{joined_late} joined after {since}, {n} membership snapshot(s)."

@@ -53,12 +53,22 @@ pre{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:
 @media (prefers-color-scheme:dark){.trust.modest .badge{background:#12382c;color:#3ecf9a}.trust.no_evidence .badge,.trust.none .badge{background:#3b1714}}
 .facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px 16px;margin:10px 0 0;font-size:13px}
 .facts div span{color:var(--muted)}
+#rankTable.gated th:nth-child(3), #rankTable.gated td:nth-child(3),
+#rankTable.gated th:nth-child(4), #rankTable.gated td:nth-child(4){display:none}
 details.why summary{cursor:pointer;color:var(--accent);font-size:14px;margin-top:8px}
 .hide{display:none!important}
 .big{font-size:28px;font-weight:700}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:12px 0}
 .stat{border:1px solid var(--line);border-radius:10px;padding:12px}
 .news li{margin:6px 0}
+.nav{display:flex;gap:8px;align-items:center}
+.nav button{padding:6px 12px}
+.alloc{margin:6px 0 14px}
+.alloc .row2{display:grid;grid-template-columns:minmax(120px,190px) 1fr 64px;gap:10px;align-items:center;margin:5px 0;font-size:14px}
+.alloc .track{height:10px;border-radius:6px;background:var(--line);overflow:hidden}
+.alloc .track i{display:block;height:100%;background:var(--accent, #6b9bff)}
+.pf-table td,.pf-table th{font-size:14px}
+.facts-list li{margin:6px 0}
 footer{color:var(--muted);font-size:13px;text-align:center;padding:12px 0 28px}
 @media (max-width:560px){.hide-sm{display:none}}
 </style>
@@ -75,11 +85,13 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding:12px 0 28px}
 <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
 <symbol id="i-x" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></symbol>
 <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></symbol>
+<symbol id="i-pie" viewBox="0 0 24 24"><path d="M21 12A9 9 0 1 1 12 3v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></symbol>
+<symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v4h16v-4"/></symbol>
 </defs></svg>
 <div class="wrap">
 <header>
   <h1><svg class="ic lg" aria-hidden="true"><use href="#i-chart"/></svg> LearnTrade</h1>
-  <div><span id="modePill" class="pill hide"></span></div>
+  <div class="nav"><button id="navStocks" class="hide">Stocks</button><button id="navPf"><svg class="ic" aria-hidden="true"><use href="#i-pie"/></svg> My portfolio</button> <span id="modePill" class="pill hide"></span></div>
 </header>
 
 <div class="notice">LearnTrade gives <b>information, not financial advice</b>, and never trades for you.</div>
@@ -107,9 +119,45 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding:12px 0 28px}
     <textarea id="symbols" placeholder="Example for India: RELIANCE, TCS, INFY, HDFCBANK, ICICIBANK, ITC, LT, SBIN"></textarea>
     <p class="muted small">Use the short ticker symbol, without the exchange name. Not sure? Search the company on your broker's app — the short code is the symbol.</p>
     <button class="primary" id="btnReal">Download data &amp; set up</button>
-    <p class="muted small" style="margin-top:14px">In the USA? Skip typing: <button id="btnSP500" style="padding:6px 12px">Use the whole S&amp;P 500</button> It loads every member with the date it joined, so stocks are only used from when they were actually in the index.</p>
+    <p class="muted small" style="margin-top:14px">In India? Skip typing: <button id="btnN500" style="padding:6px 12px">Use the Nifty 500</button> Large, mid and small companies together, so the model also learns how smaller companies behave (takes 10 to 15 minutes the first time).</p>
+    <p class="muted small" style="margin-top:8px">In the USA? Skip typing: <button id="btnSP500" style="padding:6px 12px">Use the whole S&amp;P 500</button> It loads every member with the date it joined, so stocks are only used from when they were actually in the index.</p>
   </div>
+  <p class="muted small" style="margin-top:14px">Just want to look at your own holdings? <button id="btnWelcomePf" style="padding:6px 12px">Analyse my portfolio</button> Upload your broker's holdings file; no stock list or training needed.</p>
   <div id="startErr" class="err hide"></div>
+</section>
+
+<!-- My portfolio -->
+<section id="pf" class="hide">
+  <div class="card">
+    <h2>My portfolio</h2>
+    <p class="muted small">Upload the holdings file from your broker: Zerodha (Kite or Console), Groww, or any CSV or Excel file with a name, symbol or ISIN column and a quantity column. You can add a stocks file and a mutual funds file together. LearnTrade finds each holding, downloads prices and fund NAVs, and shows what you own and how it has behaved. Nothing is predicted here, and nothing leaves your computer except the price lookups.</p>
+    <input type="file" id="pfFiles" multiple accept=".csv,.xlsx,.xlsm,.txt">
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="primary" id="btnPfImport"><svg class="ic" aria-hidden="true"><use href="#i-upload"/></svg> Import holdings</button>
+      <button id="btnPfRefresh" class="hide"><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg> Update prices</button>
+    </div>
+    <div id="pfErr" class="err hide"></div>
+  </div>
+  <div id="pfBody" class="hide">
+    <div class="card">
+      <p class="muted small" id="pfSub"></p>
+      <div class="stats">
+        <div class="stat"><div class="small muted">Value today</div><div class="big" id="pfValue"></div></div>
+        <div class="stat"><div class="small muted">Profit / loss</div><div class="big" id="pfPnl"></div><div class="small muted" id="pfInvested"></div></div>
+        <div class="stat"><div class="small muted">Last 12 months, current mix</div><div class="big" id="pfRet" style="font-size:22px"></div><div class="small muted" id="pfRisk"></div></div>
+      </div>
+      <div id="pfWorthCard"><h2>Worth knowing</h2><ul class="facts-list" id="pfWorth"></ul></div>
+    </div>
+    <div class="card"><h2>What you own</h2><div class="alloc" id="pfClass"></div>
+      <div id="pfSectorWrap"><h2>Directly held stocks by sector</h2><div class="alloc" id="pfSector"></div></div>
+      <div id="pfSizeWrap"><h2>Directly held stocks by company size</h2><div class="alloc" id="pfSize"></div></div>
+      <p class="small muted" id="pfConc"></p>
+    </div>
+    <div class="card"><h2>Holdings</h2>
+      <table class="pf-table"><thead><tr><th>Holding</th><th>Share</th><th>Value</th><th class="hide-sm">Profit / loss</th><th class="hide-sm">12 months</th></tr></thead><tbody id="pfRows"></tbody></table>
+      <ul class="small muted" id="pfNotes" style="margin-top:12px"></ul>
+    </div>
+  </div>
 </section>
 
 <!-- Progress -->
@@ -150,7 +198,7 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding:12px 0 28px}
 
   <div class="card">
     <h2>Check any single stock</h2>
-    <p class="muted small">Not in your list? Type its short symbol and LearnTrade will fetch its prices and show where it would rank against your list.</p>
+    <p class="muted small">Not in your list? Type its short symbol and LearnTrade will fetch its prices and show how it compares with your list (funds such as gold ETFs get price facts only).</p>
     <div class="row" style="align-items:end">
       <div><label for="oneSym">Stock symbol</label><input id="oneSym" placeholder="Example: BAJAJFINSV" autocomplete="off"></div>
       <div style="flex:0 0 auto"><button class="primary" id="btnOne">Check this stock</button></div>
@@ -159,14 +207,16 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding:12px 0 28px}
 
   <div class="card">
     <h2>Stocks, ranked</h2>
-    <p class="muted small">Ranked from strongest to weakest outlook <i>compared with the other stocks in your list</i>. Tap a stock for details.</p>
+    <p class="muted small" id="rankIntro">Ranked from strongest to weakest outlook <i>compared with the other stocks in your list</i>. Tap a stock for details.</p>
     <div id="roughNote" class="notice hide">Quick rankings from recent price moves. Tap “Update data” to train the model for sharper ones.</div>
     <div id="weakNote" class="notice hide">The model sees little difference between these stocks right now, so the order below is a mild hint. More stocks usually sharpen it.</div>
+    <div id="gateNote" class="notice hide"></div>
     <div id="rankErr" class="err hide"></div>
-    <table>
+    <table id="rankTable">
       <thead><tr><th>#</th><th>Stock</th><th>Outlook</th><th class="hide-sm">Chance it beats the market</th><th class="hide-sm">Bumpiness</th></tr></thead>
       <tbody id="rankBody"></tbody>
     </table>
+    <p id="notRanked" class="small muted hide" style="margin:10px 0 0"></p>
   </div>
 </section>
 
@@ -176,14 +226,15 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding:12px 0 28px}
   <div class="card">
     <h2 id="dName"></h2>
     <p class="muted small" id="dSub"></p>
-    <div class="stats">
+    <div class="stats" id="dStats">
       <div class="stat"><div class="small muted">Outlook vs. the market</div><div class="big" id="dExp"></div><div class="small muted" id="dExpNote"></div></div>
       <div class="stat"><div class="small muted">Chance it beats the market</div><div class="big" id="dUp"></div><div class="small muted">Not a promise — a probability.</div></div>
-      <div class="stat"><div class="small muted">Typical range</div><div class="big" id="dRange" style="font-size:20px"></div><div class="small muted">Most outcomes land in here.</div></div>
+      <div class="stat"><div class="small muted" id="dRangeHead">Typical range</div><div class="big" id="dRange" style="font-size:20px"></div><div class="small muted" id="dRangeNote">Most outcomes land in here.</div></div>
     </div>
     <p id="dTrust" class="small" style="margin:0 0 12px"></p>
     <p id="dOutside" class="small hide" style="margin:0 0 12px"></p>
-    <div id="dRough" class="notice hide">Quick estimate from recent price moves.</div>
+    <div id="dRough" class="notice hide"></div>
+    <div class="facts hide" id="dPrice"></div>
     <div id="chart"></div>
     <p class="small muted" style="margin:4px 0 0">Price over the last ~6 months.</p>
   </div>
@@ -206,7 +257,8 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding:12px 0 28px}
 const $ = id => document.getElementById(id);
 const show = (id, on=true) => $(id).classList.toggle('hide', !on);
 const pct = (x, d=1) => (x>=0?'+':'') + (x*100).toFixed(d) + '%';
-let STATE = null, POLL = null;
+let STATE = null, POLL = null, AFTER_JOB = null;
+const money = v => v == null ? 'n/a' : '₹' + Math.round(v).toLocaleString('en-IN');
 
 async function api(path, opts) {
   const r = await fetch('/api/app' + path, opts);
@@ -217,16 +269,23 @@ async function api(path, opts) {
 const post = (p, data) => api(p, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data||{})});
 
 function view(name) {
-  for (const s of ['welcome','progress','main','detail']) show(s, s===name);
+  for (const s of ['welcome','progress','main','detail','pf']) show(s, s===name);
+  show('navStocks', name === 'pf');
+  show('navPf', name !== 'pf' && name !== 'progress');
 }
 
 async function boot() {
   try { STATE = await api('/state'); }
   catch(e) { view('welcome'); return showErr('startErr', e.message); }
   if (STATE.busy && STATE.job) return trackJob(STATE.job.id);
+  if (AFTER_JOB === 'pf') { AFTER_JOB = null; return openPf(); }
   const markets = STATE.markets;
   const pill = $('modePill');
-  if (!markets.length) { pill.classList.add('hide'); await loadMarkets(); return view('welcome'); }
+  if (!markets.length) {
+    pill.classList.add('hide');
+    if (STATE.portfolio) return openPf();
+    await loadMarkets(); return view('welcome');
+  }
   const demo = markets.every(m => m.demo);
   pill.textContent = demo ? 'Demo — made-up data' : 'Real market data';
   pill.className = 'pill' + (demo ? '' : ' real');
@@ -247,7 +306,7 @@ async function loadMarkets() {
 function showErr(id, msg) { const e = $(id); e.textContent = msg; e.classList.remove('hide'); }
 
 async function loadRank() {
-  show('rankErr', false); show('roughNote', false); show('weakNote', false);
+  show('rankErr', false); show('roughNote', false); show('weakNote', false); show('gateNote', false); show('notRanked', false);
   $('rankBody').innerHTML = '<tr><td colspan="5" class="muted">Loading…</td></tr>';
   try {
     const d = await api(`/rank?market=${$('marketSel').value}&horizon=${$('horizonSel').value}`);
@@ -255,23 +314,35 @@ async function loadRank() {
       $('rankBody').innerHTML = '';
       return showErr('rankErr', 'No data for this market yet. Tap “Update data”.');
     }
-    show('roughNote', d.rough);
     renderTrust(d.reliability);
-    const ps = d.rows.map(r => r.p_up);
-    show('weakNote', !d.rough && (Math.max(...ps) - Math.min(...ps)) < 0.01);
-    $('srcNote').textContent = `Outlook is measured over ${d.horizon_label}, relative to the market. ${d.count} stocks.`;
-    const maxAbs = Math.max(...d.rows.map(r => Math.abs(r.expected_return)), 1e-9);
+    if (d.gated) { $('gateNote').textContent = d.gate_note; show('gateNote', true); }
+    $('rankTable').classList.toggle('gated', !!d.gated);
+    $('rankIntro').textContent = d.gated
+      ? 'Your stocks in score order. No outlook is shown because there is no proven edge (see the note). Tap a stock for its price facts, financials and news.'
+      : 'Ranked from strongest to weakest outlook compared with the other stocks in your list. Tap a stock for details.';
+    const ps = d.rows.map(r => r.p_up).filter(p => p != null);
+    show('weakNote', !d.gated && ps.length > 1 && (Math.max(...ps) - Math.min(...ps)) < 0.01);
+    $('srcNote').textContent = d.gated
+      ? `${d.count} stocks, in the order of the ${d.rough ? 'recent price momentum' : "model's score"}.`
+      : `Outlook is measured over ${d.horizon_label}, relative to the market. ${d.count} stocks.`;
+    if (d.not_ranked && d.not_ranked.length) {
+      $('notRanked').textContent = 'Not ranked (funds and indices are not companies; tap them via Check any single stock for their price facts): '
+        + d.not_ranked.map(x => x.symbol).join(', ') + '.';
+      show('notRanked', true);
+    }
+    const maxAbs = Math.max(...d.rows.map(r => Math.abs(r.expected_return || 0)), 1e-9);
     $('rankBody').innerHTML = '';
     for (const r of d.rows) {
       const tr = document.createElement('tr');
-      const w = Math.round(50 + 50 * r.expected_return / maxAbs);
+      const has = r.expected_return != null;
+      const w = has ? Math.round(50 + 50 * r.expected_return / maxAbs) : 0;
       tr.innerHTML = `<td>${r.rank}</td><td><b></b><div class="small muted"></div></td>
-        <td><div class="${r.expected_return>=0?'pos':'neg'}">${pct(r.expected_return)}</div>
-            <div class="bar"><i style="width:${w}%"></i></div></td>
-        <td class="hide-sm">${r.rough||d.rough?'—':(r.p_up*100).toFixed(0)+'%'}</td>
+        <td>${has ? `<div class="${r.expected_return>=0?'pos':'neg'}">${pct(r.expected_return)}</div>
+            <div class="bar"><i style="width:${w}%"></i></div>` : '<span class="muted">—</span>'}</td>
+        <td class="hide-sm">${r.p_up == null ? '—' : (r.p_up*100).toFixed(0)+'%'}</td>
         <td class="hide-sm">${(r.risk*100).toFixed(0)}%</td>`;
       tr.querySelector('b').textContent = r.symbol;
-      tr.querySelector('.small').textContent = r.label;
+      tr.querySelector('.small').textContent = r.label || '';
       tr.onclick = () => openStock(r.instrument);
       $('rankBody').appendChild(tr);
     }
@@ -328,7 +399,9 @@ function spark(points) {
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Price chart"><path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2"/></svg>`;
 }
 
+let BACK_TO = null;
 async function openStock(iid) {
+  BACK_TO = $('pf').classList.contains('hide') ? null : 'pf';
   view('detail');
   $('dName').textContent = iid.split(':')[1];
   $('dSub').textContent = 'Loading… (checking a new stock can take a few seconds)';
@@ -338,21 +411,94 @@ async function openStock(iid) {
     const d = await api(`/stock/${encodeURIComponent(iid)}?horizon=${$('horizonSel').value}`);
     $('dName').textContent = d.symbol;
     $('dSub').textContent = `${d.instrument} · looking ahead ${d.horizon_label}`;
-    $('dExp').textContent = pct(d.expected_return);
-    $('dExp').className = 'big ' + (d.expected_return>=0?'pos':'neg');
-    $('dExpNote').textContent = d.expected_return>=0 ? 'expected to do better than the market' : 'expected to do worse than the market';
-    $('dUp').textContent = d.rough ? '—' : (d.p_up*100).toFixed(0)+'%';
-    $('dRange').textContent = `${pct(d.low,0)} to ${pct(d.high,0)}`;
-    show('dRough', d.rough);
+    const has = d.expected_return != null;
+    $('dExp').textContent = has ? pct(d.expected_return) : '—';
+    $('dExp').className = 'big ' + (!has ? 'muted' : d.expected_return>=0?'pos':'neg');
+    $('dExpNote').textContent = !has ? 'not shown (see note below)'
+      : d.expected_return>=0 ? 'expected to do better than the market' : 'expected to do worse than the market';
+    $('dUp').textContent = d.p_up == null ? '—' : (d.p_up*100).toFixed(0)+'%';
+    $('dRangeHead').textContent = has ? 'Typical range' : 'How much it typically moves';
+    $('dRangeNote').textContent = has ? 'Most outcomes land in here.' : `Usual swing vs. the market over ${d.horizon_label}.`;
+    $('dRange').textContent = d.low == null ? '—' : `${pct(d.low,0)} to ${pct(d.high,0)}`;
+    $('dRough').textContent = d.gate_note || ''; show('dRough', !!d.gate_note);
     show('dOutside', !!d.outside);
     $('dTrust').textContent = 'Model reliability: ' + (LEVEL[d.reliability.level] || '') + '. ' + d.reliability.headline;
-    if (d.outside) $('dOutside').textContent = `Not in your list. Compared with your ${d.outside.of - 1} stocks, it would rank ${d.outside.would_rank} of ${d.outside.of}.`;
+    if (d.outside) $('dOutside').textContent = d.outside.would_rank
+      ? `Not in your list. Compared with your ${d.outside.of - 1} stocks, it would rank ${d.outside.would_rank} of ${d.outside.of}.`
+      : 'Not in your list.';
+    const ps = d.price_summary || {}, prow = [];
+    if (ps.return_3m != null) prow.push(['Last 3 months', pct(ps.return_3m, 1)]);
+    if (ps.return_1y != null) prow.push(['Last 12 months', pct(ps.return_1y, 1)]);
+    if (ps.volatility != null) prow.push(['Yearly volatility', (ps.volatility*100).toFixed(0) + '%']);
+    if (ps.max_drawdown != null) prow.push(['Worst fall from a high', pct(ps.max_drawdown, 1)]);
+    const pb = $('dPrice'); pb.innerHTML = '';
+    for (const [k,v] of prow) { const e = document.createElement('div'); const s = document.createElement('span'); s.textContent = k + ': '; e.appendChild(s); e.appendChild(document.createTextNode(v)); pb.appendChild(e); }
+    show('dPrice', prow.length > 0);
+    show('dFundCard', d.is_company !== false);
+    show('dStats', d.is_company !== false);
+    show('dTrust', d.is_company !== false);
     $('chart').innerHTML = spark(d.closes);
     renderFund(d.fundamentals || {});
     const ul = $('dNews'); ul.innerHTML='';
     for (const n of d.news) { const li=document.createElement('li'); li.textContent=n; ul.appendChild(li); }
     show('dNoNews', d.news.length===0);
   } catch(e) { $('dSub').textContent = e.message; }
+}
+
+function allocBars(id, items, total) {
+  const box = $(id); box.innerHTML = '';
+  for (const x of items) {
+    const row = document.createElement('div'); row.className = 'row2';
+    const a = document.createElement('div'); a.textContent = x.label;
+    const t = document.createElement('div'); t.className = 'track'; const i = document.createElement('i');
+    i.style.width = Math.max(1, Math.round(x.weight * 100)) + '%'; t.appendChild(i);
+    const b = document.createElement('div'); b.style.textAlign = 'right'; b.textContent = (x.weight*100).toFixed(0) + '%';
+    row.append(a, t, b); box.appendChild(row);
+  }
+}
+
+async function openPf() {
+  view('pf'); show('pfErr', false);
+  let d; try { d = await api('/portfolio'); } catch(e) { return showErr('pfErr', e.message); }
+  show('pfBody', !!d.ready); show('btnPfRefresh', !!d.ready);
+  if (!d.ready) return;
+  const t = d.totals;
+  $('pfSub').textContent = `${t.holdings} holdings from ${d.source}, imported ${String(d.imported_at).slice(0,10)}. Prices from the market for ${t.priced_from_market} of them.`;
+  $('pfValue').textContent = money(t.value);
+  $('pfPnl').textContent = t.pnl == null ? 'n/a' : (t.pnl >= 0 ? '+' : '−') + money(Math.abs(t.pnl)).slice(0) + ` (${pct(t.pnl_pct)})`;
+  $('pfPnl').className = 'big ' + (t.pnl == null ? '' : t.pnl >= 0 ? 'pos' : 'neg');
+  $('pfInvested').textContent = t.invested == null ? 'cost not in the file' : 'invested ' + money(t.invested);
+  const r = d.risk || {};
+  $('pfRet').textContent = r.return_period == null ? 'n/a' : pct(r.return_period);
+  $('pfRisk').textContent = r.volatility == null ? 'not enough price history' :
+    `volatility ${(r.volatility*100).toFixed(0)}% a year · worst fall ${pct(r.max_drawdown, 0)}`;
+  const w = $('pfWorth'); w.innerHTML = '';
+  for (const f of d.worth_knowing) { const li = document.createElement('li'); li.textContent = f; w.appendChild(li); }
+  show('pfWorthCard', d.worth_knowing.length > 0);
+  allocBars('pfClass', d.allocation.asset_class);
+  allocBars('pfSector', d.allocation.sector); show('pfSectorWrap', d.allocation.sector.length > 0);
+  allocBars('pfSize', d.allocation.size); show('pfSizeWrap', d.allocation.size.length > 0);
+  const c = d.concentration;
+  $('pfConc').textContent = c.largest ? `Largest holding: ${c.largest.name} (${(c.largest.weight*100).toFixed(0)}%). Top five: ${(c.top5_weight*100).toFixed(0)}%. Spread-wise, the portfolio behaves like about ${Math.round(c.effective_holdings)} equal-sized holdings.` : '';
+  const body = $('pfRows'); body.innerHTML = '';
+  for (const h of d.holdings) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><b></b><div class="small muted"></div></td><td>${h.weight == null ? '—' : (h.weight*100).toFixed(1) + '%'}</td>
+      <td>${money(h.value)}</td>
+      <td class="hide-sm ${h.pnl_pct == null ? '' : h.pnl_pct >= 0 ? 'pos' : 'neg'}">${h.pnl_pct == null ? '—' : pct(h.pnl_pct)}</td>
+      <td class="hide-sm">${h.return_1y == null ? '—' : pct(h.return_1y)}</td>`;
+    tr.querySelector('b').textContent = h.name;
+    tr.querySelector('.small').textContent = [h.asset_class, h.sector, h.size && h.kind === 'stock' ? h.size + ' company' : h.size ? h.size + ' caps' : null].filter(Boolean).join(' · ') + (h.id ? '' : ' · not found');
+    if (h.id && (h.kind === 'stock' || h.kind === 'etf') && h.id.startsWith('X')) { tr.style.cursor = 'pointer'; tr.onclick = () => openStock(h.id); }
+    body.appendChild(tr);
+  }
+  const n = $('pfNotes'); n.innerHTML = '';
+  for (const x of d.notes) { const li = document.createElement('li'); li.textContent = x; n.appendChild(li); }
+}
+
+async function pfJob(promise) {
+  show('pfErr', false);
+  try { const j = await promise; AFTER_JOB = 'pf'; trackJob(j.id); } catch(e) { showErr('pfErr', e.message); }
 }
 
 function trackJob(id) {
@@ -382,6 +528,7 @@ function trackJob(id) {
 
 $('btnDemo').onclick = async () => { try { const j = await post('/start', {mode:'demo'}); trackJob(j.id); } catch(e) { showErr('startErr', e.message); } };
 $('btnShowReal').onclick = () => show('realForm', true);
+$('btnN500').onclick = async () => { show('startErr', false); try { const j = await post('/start', {mode:'real', index:'NIFTY500'}); trackJob(j.id); } catch(e) { showErr('startErr', e.message); } };
 $('btnSP500').onclick = async () => { show('startErr', false); try { const j = await post('/start', {mode:'real', index:'SP500'}); trackJob(j.id); } catch(e) { showErr('startErr', e.message); } };
 $('btnReal').onclick = async () => {
   show('startErr', false);
@@ -390,7 +537,20 @@ $('btnReal').onclick = async () => {
 };
 $('btnRefresh').onclick = async () => { try { const j = await post('/refresh'); trackJob(j.id); } catch(e) { showErr('rankErr', e.message); } };
 $('btnJobOk').onclick = boot;
-$('btnBack').onclick = () => view('main');
+$('btnBack').onclick = () => { if (BACK_TO === 'pf') { BACK_TO = null; return openPf(); } view('main'); };
+$('navPf').onclick = openPf;
+$('navStocks').onclick = async () => {
+  if (STATE && STATE.markets && STATE.markets.length) return boot();
+  await loadMarkets(); view('welcome');
+};
+$('btnWelcomePf').onclick = openPf;
+$('btnPfRefresh').onclick = () => pfJob(post('/portfolio/refresh'));
+$('btnPfImport').onclick = () => {
+  const fs = $('pfFiles').files;
+  if (!fs.length) return showErr('pfErr', 'Choose your holdings file first (CSV or Excel).');
+  const fd = new FormData(); for (const f of fs) fd.append('files', f);
+  pfJob(api('/portfolio/import', {method: 'POST', body: fd}));
+};
 $('btnOne').onclick = () => {
   const sym = $('oneSym').value.trim().toUpperCase();
   if (!/^[A-Z0-9][A-Z0-9.&\-]{0,19}$/.test(sym)) { $('oneSym').focus(); return; }

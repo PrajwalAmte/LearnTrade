@@ -44,8 +44,8 @@ def test_tools_work_over_stdio_and_errors_are_readable(tmp_path):
         ("rank", {"market": "ZZZZ"}),
     ])
     tools = out["tools"]
-    assert set(tools) == {"status", "rank", "stock", "reliability", "evaluate"}
-    for name in ("status", "rank", "reliability", "evaluate"):
+    assert set(tools) == {"status", "rank", "stock", "reliability", "evaluate", "portfolio"}
+    for name in ("status", "rank", "reliability", "evaluate", "portfolio"):
         assert tools[name].annotations.read_only_hint is True
     assert tools["stock"].annotations.read_only_hint is False      # may download one symbol (opt-in)
 

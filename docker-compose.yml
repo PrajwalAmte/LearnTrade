@@ -4,7 +4,9 @@ services:
   learntrade:
     build: .
     ports:
-      - "8787:8787"
+      # Only this computer can open it: LearnTrade has no login, so it must not be reachable
+      # from the network. Change to "8787:8787" only behind your own authentication.
+      - "127.0.0.1:8787:8787"
     volumes:
       - ./data:/app/data
       - ./config:/app/config
